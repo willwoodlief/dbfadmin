@@ -4,6 +4,7 @@ require_once $abs_us_root.$us_url_root.'users/includes/header.php';
 require_once $abs_us_root.$us_url_root.'users/includes/navigation.php';
 require_once $abs_us_root.$us_url_root.'pages/helpers/pages_helper.php';
 require_once $abs_us_root.$us_url_root.'users/includes/navigation.php';
+require_once $abs_us_root.$us_url_root.'lib/dbf/dbf_class.php';
 ?>
 
 <?php if (!securePage($_SERVER['PHP_SELF'])){die();}
@@ -41,7 +42,11 @@ if(isset($_POST['uploads'])) {
 
     if ($dbf_file_path) {
         // do something with $dbf_file_path
-
+        $errors = upload_data_from_file($dbf_file_path);
+        for($i=0; $i < sizeof($errors); $i++) {
+            $error_count++;
+            $validation->addError($errors[$i]);
+        }
     }
 
 

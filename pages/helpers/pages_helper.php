@@ -1,5 +1,70 @@
 <?php
-//will upload all unless is set
+
+function upload_data_from_file($filepath) {
+    $errors = [];
+    try {
+        $dbf = new dbf_class($filepath);
+        $type_file = get_type_of_file($dbf) ;
+        if ($type_file == 'property' ) {
+            $g = get_property_hash($dbf);
+            add_single_property_to_db($g);
+
+        } elseif ( $type_file == 'list') {
+            add_list_to_db($dbf);
+        } else {
+            throw new Exception('Cannot identify type of file, return type was '.$type_file );
+        }
+    }
+    catch (Exception $e) {
+        array_push($errors,$e->getMessage());
+    }
+
+
+    return $errors;
+}
+
+//returns either property or list
+function get_type_of_file($dbf) {
+    return 'property';
+}
+
+function get_property_hash($dbf) {
+    $ret = [];
+    $num_rec=$dbf->dbf_num_rec;
+    for($i=0; $i<$num_rec; $i++) {
+        if ($row = $dbf->getRow($i)) {
+
+        } else {
+
+        }
+    }
+
+    return $ret;
+}
+
+function add_single_property_to_db($propertyHash) {
+
+}
+
+function add_list_to_db($dbf) {
+    $num_rec=$dbf->dbf_num_rec;
+    for($i=0; $i<$num_rec; $i++) {
+        if ($row = $dbf->getRow($i)) {
+            $line_hash = getRowHash($row);
+            addRowHashToDB($line_hash);
+        } else {
+
+        }
+    }
+}
+
+function getRowHash($row) {
+    return [];
+}
+
+function addRowHashToDB($line_hash) {
+
+}
 
 #takes the string value, pads it to the left with 0 and makes 3 wide sections
 function get_string_filepath_from_id($i) {
@@ -19,7 +84,6 @@ function is_connected($url_to_check)
 {
     //http://stackoverflow.com/questions/4860365/determine-in-php-script-if-connected-to-internet
     $connected = fsockopen($url_to_check, 80);
-    $y = var_dump($connected);
 
     //website, port  (try 80 or 443)
     if ($connected){
@@ -142,21 +206,21 @@ function print_nice($elem,$max_level=15,$print_nice_stack=array()){
     //if (is_object($elem)) {$elem = object_to_array($elem);}
     if(is_array($elem) || is_object($elem)){
         if(in_array($elem,$print_nice_stack,true)){
-            echo "<font color=red>RECURSION</font>";
+            echo "<span style='color:red'>RECURSION</span>";
             return;
         }
         $print_nice_stack[]=&$elem;
         if($max_level<1){
-            echo "<font color=red>reached maximum level</font>";
+            echo "<span style='color:red'>reached maximum level</span>";
             return;
         }
         $max_level--;
         echo "<table border=1 cellspacing=0 cellpadding=3 width=100%>";
         if(is_array($elem)){
-            echo '<tr><td colspan=2 style="background-color:#333333;"><strong><font color=white>ARRAY</font></strong></td></tr>';
+            echo '<tr><td colspan=2 style="background-color:#333333;"><strong><span style="color:white">ARRAY</span></strong></td></tr>';
         }else{
             echo '<tr><td colspan=2 style="background-color:#333333;"><strong>';
-            echo '<font color=white>OBJECT Type: '.get_class($elem).'</font></strong></td></tr>';
+            echo '<span style="color:white">OBJECT Type: '.get_class($elem).'</span></strong></td></tr>';
         }
         $color=0;
         foreach($elem as $k => $v){
@@ -174,17 +238,17 @@ function print_nice($elem,$max_level=15,$print_nice_stack=array()){
         return;
     }
     if($elem === null){
-        echo "<font color=green>NULL</font>";
+        echo "<span style='color:green'>NULL</span>";
     }elseif($elem === 0){
         echo "0";
     }elseif($elem === true){
-        echo "<font color=green>TRUE</font>";
+        echo "<span style='color:green'>TRUE</span>";
     }elseif($elem === false){
-        echo "<font color=green>FALSE</font>";
+        echo "<span style='color:green'>FALSE</span>";
     }elseif($elem === ""){
-        echo "<font color=green>EMPTY STRING</font>";
+        echo "<span style='color:green'>EMPTY STRING</span>";
     }else{
-        echo str_replace("\n","<strong><font color=red>*</font></strong><br>\n",$elem);
+        echo str_replace("\n","<strong><span style='color:green'>*</span></strong><br>\n",$elem);
     }
 }
 
@@ -192,7 +256,6 @@ function print_nice($elem,$max_level=15,$print_nice_stack=array()){
 function TO($object){ //Test Object
     if(!is_object($object)){
         throw new Exception("This is not a Object");
-        return;
     }
     if(class_exists(get_class($object), true)) echo "<pre>CLASS NAME = ".get_class($object);
     $reflection = new ReflectionClass(get_class($object));
