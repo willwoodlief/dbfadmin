@@ -1,12 +1,6 @@
 <?php
-include 'file_byte_reader.php';
-
 /************************************************************
-Below was updated by Will Woodlief to read from the file, and not fill up memory with the entire file
- *  these changes use a helper class the does random access to file in birary mode
- *  all I did was to substitute reading from an in memory array to reading from the class
-
-  DBF reader Class v0.04  by Faro K Rasyid (Orca)
+DBF reader Class v0.04  by Faro K Rasyid (Orca)
 orca75_at_dotgeek_dot_org
 v0.05 by Nicholas Vrtis
 vrtis_at_vrtisworks_dot_com
@@ -52,20 +46,18 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 See the GNU  Lesser General Public License for more details.
   
 **************************************************************/ 
-class dbf_class {
+class dbf_class_old {
 		
     var $dbf_num_rec;           //Number of records in the file
     var $dbf_num_field;         //Number of columns in each row
     var $dbf_names = array();   //Information on each column ['name'],['len'],['type']
     //These are private....
-    private  $_rowsize;           //Length of each row
-    private $_hdrsize;           //Length of the header information (offset to 1st record)
-    private $_memos;             //The raw memo file (if there is one).
+    var $_raw;               //The raw input file
+    var $_rowsize;           //Length of each row
+    var $_hdrsize;           //Length of the header information (offset to 1st record)
+    var $_memos;             //The raw memo file (if there is one).
 
-    private $_reader;  //the file byte reader added by will
-
-    function dbf_class($filename) {
-        /*
+    function dbf_class_old($filename) {
         if ( !file_exists($filename)) {
             echo 'Not a valid DBF file !!!'; exit;
         }
@@ -78,20 +70,16 @@ class dbf_class {
         $handle = fopen($filename, "r");
         if (!$handle) { echo "Cannot read DBF file"; exit; }
         $filesize = filesize($filename);
-        */
-        $tail='.dbf';  # it used to read the filename, but now this is a temp file without an extension
-        $this->_reader = new FileByteReader($filename); //throws exception if cannot open the file and get a size from it
+        $this->_raw = fread ($handle, $filesize);
+        fclose ($handle);
         //Make sure that we indeed have a dbf file...
-        $filesize = $this->_reader->getFileSize();
-        $first_32_bytes = $this->_reader->getBytes(0,32);
-        $last_byte = $this->_reader->getBytes($filesize - 1,1);
-        if(!(ord($first_32_bytes[0]) == 3 || ord($first_32_bytes[0]) == 131) && ord($last_byte[0]) != 26) {
-            throw new Exception("Not a valid DBF file !!!");
+        if(!(ord($this->_raw[0]) == 3 || ord($this->_raw[0]) == 131) && ord($this->_raw[$filesize]) != 26) {
+            echo 'Not a valid DBF file !!!'; exit;
         }
         // 3= file without DBT memo file; 131 ($83)= file with a DBT.
         $arrHeaderHex = array();
         for($i=0; $i<32; $i++){
-            $arrHeaderHex[$i] = str_pad(dechex(ord($first_32_bytes[$i]) ), 2, "0", STR_PAD_LEFT);
+            $arrHeaderHex[$i] = str_pad(dechex(ord($this->_raw[$i]) ), 2, "0", STR_PAD_LEFT);
         }
         //Initial information
         $line = 32;//Header Size
@@ -103,24 +91,19 @@ class dbf_class {
 		$this->dbf_num_field = floor(($this->_hdrsize - $line ) / $line ) ;//Number of Fields
 				
         //Field properties retrieval looping
-        //get the bytes in the field propeties
-        $property_bytes = $this->_reader->getBytes(32,$this->dbf_num_field* $line);
         for($j=0; $j<$this->dbf_num_field; $j++){
             $name = '';
-            $beg = $j*$line;
-
+            $beg = $j*$line+$line;
             for($k=$beg; $k<$beg+11; $k++){
-
-                if(ord($property_bytes[$k])!=0){
-                    $name .= $property_bytes[$k];
+                if(ord($this->_raw[$k])!=0){
+                    $name .= $this->_raw[$k];
                 }
-
             }
             $this->dbf_names[$j]['name']= $name;//Name of the Field
-            $this->dbf_names[$j]['len']= ord($property_bytes[$beg+16]);//Length of the field
-            $this->dbf_names[$j]['type']= $property_bytes[$beg+11];
+            $this->dbf_names[$j]['len']= ord($this->_raw[$beg+16]);//Length of the field
+            $this->dbf_names[$j]['type']= $this->_raw[$beg+11];
         }
-        if (ord($first_32_bytes[0])==131) { //See if this has a memo file with it...
+        if (ord($this->_raw[0])==131) { //See if this has a memo file with it...
             //Read the File
             $tail=substr($tail,-1,1);   //Get the last character...
             if ($tail=='F'){            //See if upper or lower case
@@ -130,7 +113,7 @@ class dbf_class {
             }
             $memoname = substr($filename,0,strlen($filename)-1).$tail;
             $handle = fopen($memoname, "r");
-            if (!$handle) { throw new Exception("Cannot read DBT file, there was a memo attached buts it not here with the filename expected"); }
+            if (!$handle) { echo "Cannot read DBT file"; exit; }
             $filesize = filesize($memoname);
             $this->_memos = fread ($handle, $filesize);
             fclose ($handle);
@@ -138,11 +121,8 @@ class dbf_class {
     }
     
     function getRow($recnum) {
-        if ($recnum > $this->dbf_num_rec) {
-            throw new Exception("Asked for a row that does not exist in the dbf file, asked for $recnum but the number of rows is $this->dbf_num_rec");
-        }
         $memoeot = chr(26).chr(26);
-        $rawrow = $this->_reader->getBytes($recnum*$this->_rowsize+$this->_hdrsize,$this->_rowsize);
+        $rawrow = substr($this->_raw,$recnum*$this->_rowsize+$this->_hdrsize,$this->_rowsize);
         $rowrecs = array();
         $beg=1;
         if (ord($rawrow[0])==42) {
@@ -164,7 +144,7 @@ class dbf_class {
     
     function getRowAssoc($recnum) {
         $memoeot = chr(26).chr(26);
-        $rawrow = $this->_reader->getBytes($recnum*$this->_rowsize+$this->_hdrsize,$this->_rowsize);
+        $rawrow = substr($this->_raw,$recnum*$this->_rowsize+$this->_hdrsize,$this->_rowsize);
         $rowrecs = array();
         $beg=1;
         if (ord($rawrow[0])==42) {
