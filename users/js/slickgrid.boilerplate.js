@@ -55,6 +55,7 @@ function SlickGridBoilerplate(options) {
 
             //see if there is a confirmation dialog to changing this
             if (typeof slick_setup.confirm_field_change == 'function' ) {
+                //noinspection JSUndeclaredVariable
                 what = slick_setup.confirm_field_change(field,value,cell_data);
                 if (!what) {
                     return {valid: false, msg: null};
@@ -62,7 +63,7 @@ function SlickGridBoilerplate(options) {
             }
 
 
-            var ret = slick_setup.remote_call_change(field, cell_data, value);
+            var ret = slick_setup.remote_call_change(field, cell_data, value,columns);
 
 
 
@@ -75,6 +76,9 @@ function SlickGridBoilerplate(options) {
                     }, 2000);
 
                 }
+
+                //if there is an action_after_update handler in the column, go ahead and call it
+                // if it returns true
                 return {valid: true, msg: null};
             } else {
                 slick_setup.show_error_message(ret.msg, 'error');
@@ -133,12 +137,13 @@ function SlickGridBoilerplate(options) {
                 return '';
             }
             var grid_class_name = $("#" + gridID).data('gridvar');
-            var button = "<span class='delrow redx glyphicon glyphicon-remove' data-row='" + row + "' data-cell='" + cell + "' id='sg-redx-" + dataContext.id + "' onclick='"+grid_class_name+".deleteRowHere(" + dataContext.id + ");' >&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>";
+            var button = "<img src='images/grayx.png' class='delrow redx glyphicon glyphicon-remove' data-row='" + row + "' data-cell='" + cell + "' id='sg-redx-" + dataContext.id + "' onclick='"+grid_class_name+".deleteRowHere(" + dataContext.id + ");' />";
             //the id is so that you can identify the row when the particular button is clicked
             return button;
             //Now the row will display your button
         };
 
+        //noinspection JSUnusedGlobalSymbols
         this.antisafeFormatter = function (row, cell, value, columnDef, dataContext) {
 
             var v = value.replace(/&lt;/g, '<');
@@ -213,14 +218,16 @@ function SlickGridBoilerplate(options) {
         };
 
 
+        //noinspection JSUnusedGlobalSymbols
         this.MyLongTextFormatter = function (row, cell, value, columnDef, dataContext) {
             if (!value) {
                 return "none";
             }
-            return "<p style='white-space: normal;margin-top:2px;padding-top:0px;margin-bottom:2px;padding-bottom:0px;'>" +
+            return "<p style='white-space: normal;margin-top:2px;padding-top:0;margin-bottom:2px;padding-bottom:0;'>" +
                 value + "</p>";
         };
 
+        //noinspection JSUnusedGlobalSymbols
         this.MyPercentFormatter = function (row, cell, value, columnDef, dataContext) {
             if (!value) {
                 return "0 %";
@@ -228,6 +235,15 @@ function SlickGridBoilerplate(options) {
             return  value + " %";
         };
 
+        this.MyCheckBoxFormatter = function CheckmarkFormatter(row, cell, value, columnDef, dataContext) {
+            if (value === true || (parseInt(value) > 0) ) {
+                return "<img src='../users/js/plugins/SlickGrid/images/tick.png'>";
+            } else {
+                return '';
+            }
+        };
+
+        //noinspection JSUnusedGlobalSymbols
         this.MyTimestampFormatter = function (row, cell, value, columnDef, dataContext) {
             if (!value) {
                 return "none";
@@ -235,13 +251,13 @@ function SlickGridBoilerplate(options) {
             var date = new Date(value * 1000);
             var year = date.getFullYear();
             var month = date.getMonth() + 1;
-            var date = date.getDate();
 
             var time = month + '/' + date + '/' + year;
             return time;
-        }
+        };
 
         //todo this can be hooked up to the currency conversation tables and made to do different dominations
+        //noinspection JSUnusedGlobalSymbols
         this.MyCentsToCurrencyFormatter = function (row, cell, value, columnDef, dataContext) {
             if (!value) {
                 return "free";
@@ -253,8 +269,9 @@ function SlickGridBoilerplate(options) {
             } else {
                 return '$ ' + dollars;
             }
-        }
+        };
 
+        //noinspection JSUnusedGlobalSymbols
         this.MySecondsToDurationFormatter = function (row, cell, value, columnDef, dataContext) {
             if (!value) {
                 return "none";
@@ -295,40 +312,16 @@ function SlickGridBoilerplate(options) {
             return 'none';
         };
 
-        function millisecondsToStr(milliseconds) {
 
 
-            var temp = Math.floor(milliseconds / 1000);
-            var years = Math.floor(temp / 31536000);
-            if (years) {
-                return years + ' year' + numberEnding(years);
-            }
-            //TODO: Months! Maybe weeks?
-            var days = Math.floor((temp %= 31536000) / 86400);
-            if (days) {
-                return days + ' day' + numberEnding(days);
-            }
-            var hours = Math.floor((temp %= 86400) / 3600);
-            if (hours) {
-                return hours + ' hour' + numberEnding(hours);
-            }
-            var minutes = Math.floor((temp %= 3600) / 60);
-            if (minutes) {
-                return minutes + ' minute' + numberEnding(minutes);
-            }
-            var seconds = temp % 60;
-            if (seconds) {
-                return seconds + ' second' + numberEnding(seconds);
-            }
-            return 'less than a second'; //'just now' //or other string you like;
-        }
 
-
+        //noinspection JSUnusedGlobalSymbols
         this.div_wrap_formatter= function (row, cell, value, columnDef, dataContext) {
 
             return "<div class=''>" + value + "</div> ";
         };
 
+        //noinspection JSUnusedGlobalSymbols
         this.urlFormatter = function (row, cell, value, columnDef, dataContext) {
             if (!value.class) {
                 value.class = '';
@@ -339,6 +332,7 @@ function SlickGridBoilerplate(options) {
             return "<a class='" + value.class + "' href='" + value.url + "' target='" + value.target + "'>" + value.txt + "</a> ";
         };
 
+        //noinspection JSUnusedGlobalSymbols
         this.imageFormatter = function (row, cell, value, columnDef, dataContext) {
             if (!value.class) {
                 value.class = '';
@@ -352,15 +346,32 @@ function SlickGridBoilerplate(options) {
         };
 
 
+        //noinspection JSUnusedGlobalSymbols
         this.tagFormatter = function (row, cell, value, columnDef, dataContext) {
 
             if (value instanceof Array) {
+                //noinspection JSDuplicatedDeclaration
                 var what = value.join();
             } else {
+                //noinspection JSDuplicatedDeclaration
                 var what = tags;
             }
 
             return what;
+        };
+
+
+        //noinspection JSUnusedGlobalSymbols
+        this.timestamp_formatter = function( row, cell, value, columnDef, dataContext ) {
+            var uploaded_dt = new Date(value * 1000);
+            var human_uploaded_dt = uploaded_dt.toLocaleString();
+            return human_uploaded_dt;
+        };
+
+
+        //noinspection JSUnusedGlobalSymbols
+        this.seconds_formatter = function(row, cell, value, columnDef, dataContext ) {
+            return  millisecondsToStr(value* 1000).toString()
         };
 
 
@@ -376,10 +387,24 @@ function SlickGridBoilerplate(options) {
                 if (args.column.options) {
                     opt_values = args.column.options.split(',');
                 } else {
-                    opt_values = "yes,no".split(',');
+                    //get the options from the slick_setup//todo here
+                    if (typeof slick_setup.get_options_for_cell_select == 'function' ) {
+                        var options_from_setup = slick_setup.get_options_for_cell_select(args.column,args.item);
+                        if (options_from_setup !== false) {
+                            opt_values = options_from_setup.split(',');
+                        } else {
+                            opt_values = '';
+                        }
+
+                    } else {
+                        opt_values = "yes,no".split(',');
+                    }
+
+
                 }
                 var option_str = "";
                 for (var i in opt_values) {
+                    //noinspection JSUnfilteredForInLoop
                     var v = opt_values[i];
                     var i_val = v.split(':');
                     key_pair[i_val[1]] = i_val[0];
@@ -399,16 +424,12 @@ function SlickGridBoilerplate(options) {
             };
 
             this.loadValue = function (item) {
-                var defaultValue =  item[args.column.field];
+                defaultValue =  item[args.column.field];
                 $select.val(defaultValue);
             };
 
             this.serializeValue = function () {
-                if (args.column.options) {
-                    return $select.val();
-                } else {
-                    return ($select.val() == "yes");
-                }
+                return $select.val();
             };
 
             this.applyValue = function (item, state) {
@@ -446,7 +467,7 @@ function SlickGridBoilerplate(options) {
             var scope = this;
 
             this.init = function () {
-                $select = $("<INPUT type=checkbox value='true' class='editor-checkbox' hideFocus>");
+                $select = $("<INPUT type=checkbox value='true' class='editor-checkbox hidefocus' >");
                 $select.appendTo(args.container);
                 $select.focus();
             };
@@ -460,8 +481,10 @@ function SlickGridBoilerplate(options) {
             };
 
             this.loadValue = function (item) {
+                //noinspection JSUndeclaredVariable
                 a_value = item[args.column.field];
                 if (a_value == 'false' || a_value == '0') {
+                    //noinspection JSUndeclaredVariable
                     a_value = false;
                 }
 
@@ -521,28 +544,34 @@ function SlickGridBoilerplate(options) {
             return sortdir * (x === y ? 0 : (x > y ? 1 : -1));
         };
 
+
+
+        //noinspection JSUnusedGlobalSymbols
         this.objectCustomSort = function(a,b) {
             if ('sort_function' in a[sortcol]) {
-                var the_function = window[a[sortcol].sort_function]
+                var the_function = window[a[sortcol].sort_function];
                return the_function(a, b,sortcol,sortdir)
             } else {
-                throw "custom sort propety does not have 'sort_function' field in individual data"// if the function is not there
+                throw "custom sort propety does not have 'sort_function' field in individual data";// if the function is not there
             }
 
         };
 
+        //noinspection JSUnusedGlobalSymbols
         this.sorterNumeric = function(a, b) {
             var x = (isNaN(a[sortcol]) || a[sortcol] === "" || a[sortcol] === null) ? -99e+10 : parseFloat(a[sortcol]);
             var y = (isNaN(b[sortcol]) || b[sortcol] === "" || b[sortcol] === null) ? -99e+10 : parseFloat(b[sortcol]);
             return sortdir * (x === y ? 0 : (x > y ? 1 : -1));
         };
 
+        //noinspection JSUnusedGlobalSymbols
         this.sorterRating = function(a, b) {
             var xrow = a[sortcol], yrow = b[sortcol];
             var x = xrow[3], y = yrow[3];
             return sortdir * (x === y ? 0 : (x > y ? 1 : -1));
         };
 
+        //noinspection JSUnusedGlobalSymbols
         this.sorterDateIso = function(a, b) {
             var regex_a = new RegExp("^((19[1-9][1-9])|([2][01][0-9]))\\d-([0]\\d|[1][0-2])-([0-2]\\d|[3][0-1])(\\s([0]\\d|[1][0-2])(\\:[0-5]\\d){1,2}(\\:[0-5]\\d){1,2})?$", "gi");
             var regex_b = new RegExp("^((19[1-9][1-9])|([2][01][0-9]))\\d-([0]\\d|[1][0-2])-([0-2]\\d|[3][0-1])(\\s([0]\\d|[1][0-2])(\\:[0-5]\\d){1,2}(\\:[0-5]\\d){1,2})?$", "gi");
@@ -560,7 +589,8 @@ function SlickGridBoilerplate(options) {
         };
     }
 
-    this.get_setup = function() { return this.package_grid;}
+    //noinspection JSUnusedGlobalSymbols
+    this.get_setup = function() { return this.package_grid;};
 
     this.clear_grid = function() {
         remember_click_row = null;
@@ -571,9 +601,10 @@ function SlickGridBoilerplate(options) {
         contextGrid.render();
     };
 
+    //noinspection JSUnusedGlobalSymbols
     this.resetRememberRow = function() {
         remember_click_row = null;
-    }
+    };
 
     this.gotoCell = function(row, cell, forceEdit) {
         contextGrid.gotoCell(row,cell,forceEdit);
@@ -645,8 +676,9 @@ function SlickGridBoilerplate(options) {
         contextGrid.invalidate();
         contextGrid.invalidateRows([0,1,3]);
         contextGrid.render();
-    }
+    };
 
+    //noinspection JSUnusedGlobalSymbols
     this.toggleContextFilterRow = function() {
         contextGrid.setTopPanelVisibility(!contextGrid.getOptions().showTopPanel);
     };
@@ -674,6 +706,7 @@ function SlickGridBoilerplate(options) {
         }
     };
     
+    //noinspection JSUnusedGlobalSymbols
     this.removeRow = function(id) {
         contextDataView.deleteItem(id); //get rid of item for good
         contextGrid.invalidate();
@@ -694,7 +727,10 @@ function SlickGridBoilerplate(options) {
         function afterEffect(id, message) {
             contextDataView.deleteItem(id); //get rid of item for good
             contextDataView.refresh();
-            slick_setup.show_error_message(message, 'success');
+            if (message) {
+                slick_setup.show_error_message(message, 'success');
+            }
+
         }
 
         function noEffect(id, title, message) {
@@ -704,7 +740,8 @@ function SlickGridBoilerplate(options) {
             link.addClass('bad-redx');
 
             var cellNode = contextGrid.getCellNode(row, cell);
-
+/*
+            //want to not include bootstrap here
             $(cellNode).popover({
                 title: title,
                 content: message,
@@ -713,6 +750,7 @@ function SlickGridBoilerplate(options) {
                 container: "body",
                 html : true
             });
+  */
             slick_setup.show_error_message(message, 'error');
         }
 
@@ -738,8 +776,11 @@ function SlickGridBoilerplate(options) {
     this.toggleCellHere = function(id, field) {
 
         var link_id = "sg-toggle-" + field + '-' + id;
+        //noinspection JSJQueryEfficiency
         var link = $('#' + link_id);
+        //noinspection JSJQueryEfficiency
         var row = $('#' + link_id).data("row");
+        //noinspection JSJQueryEfficiency
         var cell = $('#' + link_id).data("cell");
         var this_data = contextGrid.getDataItem(row);
 
@@ -861,6 +902,7 @@ function SlickGridBoilerplate(options) {
                     ret = old_metadata_provider(row);
 
                 //todo this does not seem like the way to disable but keep this to add other css classes later
+                /*
                 if(false){
                     if (ret) {
                         ret.cssClasses = (ret.cssClasses || '') + ' disable-edits';
@@ -870,6 +912,7 @@ function SlickGridBoilerplate(options) {
                     }
 
                 }
+                */
                 //console.log(ret);
                 return ret;
             };
@@ -883,29 +926,35 @@ function SlickGridBoilerplate(options) {
             }
             return {};
         };
+
         contextGrid = new Slick.Grid("#" + gridID, contextDataView, columns, options);
         contextGrid.setSelectionModel(new Slick.RowSelectionModel());
 
-        var pager = new Slick.Controls.Pager(contextDataView, contextGrid, $("#" + pageID));
-        $(".slick-pager-settings-expanded").toggle();
+        if (pageID) {
+            var pager = new Slick.Controls.Pager(contextDataView, contextGrid, $("#" + pageID));
+            $(".slick-pager-settings-expanded").toggle();
+        }
+
 
 
         var columnpicker = new Slick.Controls.ColumnPicker(columns, contextGrid, options);
 
-        if (slick_setup.goesGridUseContextMenu()) {
-            contextGrid.onContextMenu.subscribe(function (e) {
-                e.preventDefault();
-                var cell = contextGrid.getCellFromEvent(e);
-                $("#" + context_menu_id)
-                    .data("row", cell.row)
-                    .css("top", e.pageY)
-                    .css("left", e.pageX)
-                    .show();
+        if (context_menu_id) {
+            if (slick_setup.goesGridUseContextMenu()) {
+                contextGrid.onContextMenu.subscribe(function (e) {
+                    e.preventDefault();
+                    var cell = contextGrid.getCellFromEvent(e);
+                    $("#" + context_menu_id)
+                        .data("row", cell.row)
+                        .css("top", e.pageY)
+                        .css("left", e.pageX)
+                        .show();
 
-                $("body").one("click", function () {
-                    $("#" + context_menu_id).hide();
+                    $("body").one("click", function () {
+                        $("#" + context_menu_id).hide();
+                    });
                 });
-            });
+            }
         }
 
         $("#" + context_menu_id).click(function (e) {
@@ -954,14 +1003,16 @@ function SlickGridBoilerplate(options) {
             var activeCellNode = args.cellNode;
             var editor = args.editor;
             var errorMessage = validationResult.msg;
+            /*
             $(activeCellNode).popover({
-                title: error_saving_header_str,
+                title: 'error in validation',
                 content: errorMessage,
                 placement: "auto left",
                 trigger: "hover",
                 container: "body",
                 html : true
             });
+            */
 
         };
 
@@ -1118,11 +1169,13 @@ function SlickGridBoilerplate(options) {
                 if (!str || 0 === str.length) {
                     isWord = false;
                 }
-                else if (str.toLowerCase().indexOf(word.toLowerCase()) !== -1) {
-                    isWord = true;
-                }
-                else {
-                    isWord = false;
+                else { //noinspection RedundantIfStatementJS
+                    if (str.toLowerCase().indexOf(word.toLowerCase()) !== -1) {
+                                        isWord = true;
+                                    }
+                                    else {
+                                        isWord = false;
+                                    }
                 }
             }
 
@@ -1142,11 +1195,13 @@ function SlickGridBoilerplate(options) {
                     if (!str2) {
                         isWord2 = false;
                     }
-                    else if (str2.toLowerCase().indexOf(word2.toLowerCase()) !== -1) {
-                        isWord2 = true;
-                    }
-                    else {
-                        isWord2 = false;
+                    else { //noinspection RedundantIfStatementJS
+                        if (str2.toLowerCase().indexOf(word2.toLowerCase()) !== -1) {
+                                                isWord2 = true;
+                                            }
+                                            else {
+                                                isWord2 = false;
+                                            }
                     }
                 } else {
                     alert('no function');
@@ -1165,31 +1220,37 @@ function SlickGridBoilerplate(options) {
         }//end filter function
 
 
-        // wire up the search textbox to apply the filter to the model
-        $("#" + search_id_array[0]).keyup(function (e) {
-            Slick.GlobalEditorLock.cancelCurrentEdit();
+        if (search_id_array[0]) {
+            // wire up the search textbox to apply the filter to the model
+            $("#" + search_id_array[0]).keyup(function (e) {
+                Slick.GlobalEditorLock.cancelCurrentEdit();
 
-            // clear on Esc
-            if (e.which == 27) {
-                this.value = "";
-            }
+                // clear on Esc
+                if (e.which == 27) {
+                    this.value = "";
+                }
 
-            searchWord = $("#" + search_id_array[0]).val();
-            //get the negative tags
-            updateFilter();
-        });
+                searchWord = $("#" + search_id_array[0]).val();
+                //get the negative tags
+                updateFilter();
+            });
+        }
 
-        $("#" + search_id_array[1]).keyup(function (e) {
-            Slick.GlobalEditorLock.cancelCurrentEdit();
-            // clear on Esc
-            if (e.which == 27) {
-                this.value = "";
-            }
+        if (search_id_array[1]) {
+            $("#" + search_id_array[1]).keyup(function (e) {
+                Slick.GlobalEditorLock.cancelCurrentEdit();
+                // clear on Esc
+                if (e.which == 27) {
+                    this.value = "";
+                }
 
-            searchWord2 = $("#" + search_id_array[1]).val();
-            //get the negative tags
-            updateFilter();
-        });
+                searchWord2 = $("#" + search_id_array[1]).val();
+                //get the negative tags
+                updateFilter();
+            });
+        }
+
+
 
         function updateFilter() {
 
@@ -1230,19 +1291,22 @@ function SlickGridBoilerplate(options) {
 
         // if you don't want the items that are not visible (due to being filtered out
         // or being on a different page) to stay selected, pass 'false' to the second arg
-        contextDataView.syncGridSelection(contextGrid, true);
+        contextDataView.syncGridSelection(contextGrid, true,true);
 
 
         //uncomment this to have draggable areas
         //$("#context-data-side").resizable();
         ////context contextGrid
 
-        contextGrid.registerPlugin(new Slick.AutoTooltips());
+        contextGrid.registerPlugin(new Slick.AutoTooltips({}));
 
-        // move the filter panel defined in a hidden div into grid top panel
-        $("#" + inline_panel_id)
-            .appendTo(contextGrid.getTopPanel())
-            .show();
+        if (inline_panel_id) {
+            // move the filter panel defined in a hidden div into grid top panel
+            $("#" + inline_panel_id)
+                .appendTo(contextGrid.getTopPanel())
+                .show();
+        }
+
 
 
         return contextGrid;

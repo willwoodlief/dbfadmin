@@ -1,6 +1,6 @@
 $(function(){
 //bootstrap 3 has different event than 2
-    $('#report-tabs').on('shown.bs.tab', function(e) {
+    $('.tabs-to-lazy-load-iframes').on('shown.bs.tab', function(e) {
         var paneID = $(e.target).attr('href');
         var src = $(paneID).attr('data-src');
         // if the iframe hasn't already been loaded once

@@ -333,7 +333,7 @@ function deleteUsers($users) {
 
 
 //Check if a user has access to a page
-function securePage($uri){
+function securePage($uri,$b_do_action=true){
 	//Separate document name from uri
 	//$tokens = explode('/', $uri);
 	//$page = end($tokens);
@@ -369,16 +369,25 @@ function securePage($uri){
 	// dnd($user);
 	if(isset($user) && $user->data() != null){
 		if($user->data()->permissions==0){
-			bold('<br><br><br>Sorry. You have been banned. If you feel this is an error, please contact the administrator.');
-			die();
+            if ($b_do_action) {
+                bold('<br><br><br>Sorry. You have been banned. If you feel this is an error, please contact the administrator.');
+                die();
+            } else {
+                return false;
+            }
 		}
 	}
 	//retrieve page details
 	$query = $db->query("SELECT id, page, private FROM app_pages WHERE page = ?",[$page]);
 	$count = $query->count();
 	if ($count==0){
-		bold('<br><br>You must go into the Admin Panel and click the Manage Pages button to add this page to the database. Doing so will make this error go away.');
-		die();
+	    if ($b_do_action) {
+            bold('<br><br>You must go into the Admin Panel and click the Manage Pages button to add this page to the database. Doing so will make this error go away.');
+            die();
+        } else {
+            return false;
+        }
+
 	}
 	$results = $query->first();
 
@@ -392,8 +401,12 @@ function securePage($uri){
 	}elseif ($pageDetails['private'] == 0){//If page is public, allow access
 		return true;
 	}elseif(!$user->isLoggedIn()){ //If user is not logged in, deny access
-		Redirect::to($us_url_root.'users/login.php');
-		return false;
+        if ($b_do_action) {
+            Redirect::to($us_url_root.'users/login.php');
+        } else {
+            return false;
+        }
+
 	}else {
 		//Retrieve list of permission levels with access to page
 

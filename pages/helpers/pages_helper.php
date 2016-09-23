@@ -25,18 +25,75 @@ function upload_data_from_file($filepath) {
 
 //returns either property or list
 function get_type_of_file($dbf) {
-    return 'property';
+    if ($dbf->dbf_num_field == 4) { return 'property'; }
+    return 'list';
 }
 
 function get_property_hash($dbf) {
+
+    /*
+     * root = []  #we return root
+     * node = []   # this is the array of key value pairs that is fed to database
+     * current_block = 'propertymain'  #each block is a table, we start with the main table
+     * parent = root  # this is the owner of the block, we can have nested blocks
+     * parent[current_block] = node  #add property node to root
+     * current_level = 0
+    * parent_stack    # when we enter the child block we push down the parent, and when come out of the child block we pop a parent to get the previous level's parent
+     *                  #push parent to stack
+     *
+     * level_stack     # when we enter the child block we push down the level of the parent, and pop it when we come out
+     *                  #push current_level to stack
+     *
+     * # two tables will help us make sense of what we parse
+     * # wx_alias_block -> name_alias :regex, name_table :string, dependency_level: integery >=0
+     *
+     * # wx_alias_column ->  name_alias :regex, name_table :string, name_column, is_comment: bool
+     *
+     * for each row
+     *      if second column (dont depend on column names) is empty next
+     *      lookup to see if block start (and get this level, and this table name)
+     *          if more than one return (due to pattern matching) throw error
+     *        peek level_stack,
+     *        if this level less than or equal to current_level
+     *
+     *          while this_level <= current_level
+     *            node = parent
+     *            parent = popped_parent
+     *            current_level = popped level
+     *           endwhile
+     *
+     *          endif
+     *
+     *         if  this_level > current_level # is a child of this current level
+     *            we push parent , we push current_level
+     *
+     *              parent = node
+     *              current_level = this level
+     *          endif
+     *
+     *          current_block = this table name
+     *          node = []
+     *          parent[current_block] = [] if not already
+     *          parent[current_block] << node
+     *
+     *      endif block start
+     *      else #not a start of a block
+     *          get alias, if not alias found throw exception
+     *                      if not same table, throw exception
+     *                       if more than one result, throw exce
+     *          if comment, next
+     *          value = column3 as string, or column 4 parsed as php date
+     *                      if both columns 3 and 4 are not empty throw exception
+     *          node[this_field] = value
+     *      endelse
+     *
+     */
     $ret = [];
     $num_rec=$dbf->dbf_num_rec;
     for($i=0; $i<$num_rec; $i++) {
-        if ($row = $dbf->getRow($i)) {
+        $row = $dbf->getRow($i);
 
-        } else {
 
-        }
     }
 
     return $ret;
@@ -95,6 +152,7 @@ function is_connected($url_to_check)
     return $is_conn;
 
 }
+
 
 
 
@@ -184,9 +242,10 @@ function rest_helper($url, $params = null, $verb = 'GET', $format = 'json')
 }
 
 
-function printOkJSONAndDie($phpArray) {
+function printOkJSONAndDie($phpArray=[]) {
     header('Content-Type: application/json');
     $phpArray['status'] = 'ok';
+    $phpArray['valid'] = true;
     print json_encode($phpArray);
     exit;
 }
@@ -194,6 +253,7 @@ function printOkJSONAndDie($phpArray) {
 function printErrorJSONAndDie($message,$phpArray=[]) {
     header('Content-Type: application/json');
     $phpArray['status'] = 'error';
+    $phpArray['valid'] = false;
     $phpArray['message'] = $message;
     print json_encode($phpArray);
     exit;
@@ -304,4 +364,38 @@ function test_site_connection($theURL) {
 function get_http_response_code($theURL) {
     $headers = get_headers($theURL);
     return substr($headers[0], 9, 3);
+}
+
+function get_column_names_hash($table_name_array) {
+    $db = DB::getInstance();
+    $quoted_table_names = [];
+        for($i=0;$i<sizeof($table_name_array); $i++) {
+            $paz = "'" . $table_name_array[$i] . "'" ;
+            array_push($quoted_table_names,$paz);
+        }
+    $table_name_list = implode(',',$quoted_table_names);
+    $database_name = getenv('DB_NAME');
+    /** @noinspection SqlResolve */
+    $query = $db->query( "SELECT table_name,column_name
+                            FROM INFORMATION_SCHEMA.COLUMNS
+                            WHERE table_name in ( $table_name_list )
+                            AND table_schema = ?
+                            and column_name not in 
+                            ('id','created_at','modified_at','UserId','EntryDate','app_user')
+                            and column_name NOT REGEXP 'id$'",
+                    [$database_name]);
+    // do not match any id columns and not some other columns
+    $cols = $query->results();
+    $ret = [];
+    foreach ($cols as $col) {
+
+        $tablename = $col->table_name;
+        $column_name = $col->column_name;
+        if (empty($ret[$tablename])) {
+            $ret[$tablename] = [];
+        }
+        array_push($ret[$tablename],$column_name);
+    }
+    return $ret;
+
 }

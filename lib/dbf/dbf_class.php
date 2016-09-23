@@ -1,5 +1,5 @@
 <?php
-include 'file_byte_reader.php';
+require_once 'file_byte_reader.php';
 
 /************************************************************
 Below was updated by Will Woodlief to read from the file, and not fill up memory with the entire file
@@ -65,20 +65,7 @@ class dbf_class {
     private $_reader;  //the file byte reader added by will
 
     function dbf_class($filename) {
-        /*
-        if ( !file_exists($filename)) {
-            echo 'Not a valid DBF file !!!'; exit;
-        }
-        $tail=substr($filename,-4);
-        if (strcasecmp($tail, '.dbf')!=0) {
-            echo 'Not a valid DBF file !!!'; exit;
-        }
-				
-        //Read the File
-        $handle = fopen($filename, "r");
-        if (!$handle) { echo "Cannot read DBF file"; exit; }
-        $filesize = filesize($filename);
-        */
+
         $tail='.dbf';  # it used to read the filename, but now this is a temp file without an extension
         $this->_reader = new FileByteReader($filename); //throws exception if cannot open the file and get a size from it
         //Make sure that we indeed have a dbf file...
