@@ -30,7 +30,7 @@ if ($settings->site_offline==1){die("The site is currently offline.");}
                     </ul>
                     <div class="tab-content">
                         <div class="tab-pane fade in active" id="completed-jobs" >
-                            <iframe src="alias_block_grid.php" name="completed-grid-table" id="completed-grid-table" height="600px" width="800px" style="border:0 none;"></iframe>
+                            <iframe src="alias_block_grid.php" name="completed-grid-table" id="completed-grid-table" height="600px" width="850px" style="border:0 none;"></iframe>
 
                         </div>
 

@@ -22,8 +22,10 @@ if (!securePage($_SERVER['PHP_SELF'])){die(); }
 <?php
 $table_names_for_us = ['contractor', 'homebuilder', 'parking', 'pricecomparison',
     'propertyactivity', 'propertyconstruction', 'propertydeed', 'propertydocuments',
-    'propertygf', 'propertyitem', 'propertyiteminstallation', 'propertypaint',
+    'propertygf', 'propertyitem', 'propertyiteminstallation','propertymain', 'propertypaint',
     'propertypermit', 'storage', 'swimmingpool' ];
+
+sort($table_names_for_us);
 
 $column_names = get_column_names_hash($table_names_for_us);
 

@@ -9,13 +9,15 @@
             ($user->roles() && in_array("Administrator", $user->roles()))
             ){ ?>
             <li><a href="<?=$us_url_root?>pages/upload.php"><i class="fa fa-fw fa-upload"></i> Upload </a></li> <!-- Common for Hamburger and Regular menus link -->
+            <li><a href="<?=$us_url_root?>pages/validate.php"><i class="fa fa-fw fa-check"></i> Validate </a></li>
+            <li><a href="<?=$us_url_root?>pages/upload_history.php"><i class="fa fa-fw fa-history"></i> History </a></li>
         <?php } ?>
 
 
 
         <?php if ($user->roles() && in_array("Administrator", $user->roles())) { ?>
             <li><a href="<?=$us_url_root?>pages/mappings.php"><i class="fa fa-fw fa-exchange"></i> Mappings </a></li> <!-- Common for Hamburger and Regular menus link -->
-            <li><a href="<?=$us_url_root?>pages/rollbacks.php"><i class="fa fa-fw fa-undo"></i> Rollbacks </a></li> <!-- Common for Hamburger and Regular menus link -->
+            <!-- Common for Hamburger and Regular menus link -->
             <li><a href="<?=$us_url_root?>pages/status.php"><i class="fa fa-fw fa-dashboard"></i> Status </a></li> <!-- Common for Hamburger and Regular menus link -->
         <?php } ?>
 

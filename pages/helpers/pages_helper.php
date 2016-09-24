@@ -7,6 +7,7 @@ function upload_data_from_file($filepath) {
         $type_file = get_type_of_file($dbf) ;
         if ($type_file == 'property' ) {
             $g = get_property_hash($dbf);
+            Session::put('last_property_uploaded',$g);
             add_single_property_to_db($g);
 
         } elseif ( $type_file == 'list') {
@@ -32,70 +33,134 @@ function get_type_of_file($dbf) {
 function get_property_hash($dbf) {
 
     /*
-     * root = []  #we return root
-     * node = []   # this is the array of key value pairs that is fed to database
-     * current_block = 'propertymain'  #each block is a table, we start with the main table
-     * parent = root  # this is the owner of the block, we can have nested blocks
-     * parent[current_block] = node  #add property node to root
-     * current_level = 0
-    * parent_stack    # when we enter the child block we push down the parent, and when come out of the child block we pop a parent to get the previous level's parent
-     *                  #push parent to stack
-     *
-     * level_stack     # when we enter the child block we push down the level of the parent, and pop it when we come out
-     *                  #push current_level to stack
-     *
-     * # two tables will help us make sense of what we parse
-     * # wx_alias_block -> name_alias :regex, name_table :string, dependency_level: integery >=0
-     *
-     * # wx_alias_column ->  name_alias :regex, name_table :string, name_column, is_comment: bool
-     *
-     * for each row
-     *      if second column (dont depend on column names) is empty next
-     *      lookup to see if block start (and get this level, and this table name)
-     *          if more than one return (due to pattern matching) throw error
-     *        peek level_stack,
-     *        if this level less than or equal to current_level
-     *
-     *          while this_level <= current_level
-     *            node = parent
-     *            parent = popped_parent
-     *            current_level = popped level
-     *           endwhile
-     *
-     *          endif
-     *
-     *         if  this_level > current_level # is a child of this current level
-     *            we push parent , we push current_level
-     *
-     *              parent = node
-     *              current_level = this level
-     *          endif
-     *
-     *          current_block = this table name
-     *          node = []
-     *          parent[current_block] = [] if not already
-     *          parent[current_block] << node
-     *
-     *      endif block start
-     *      else #not a start of a block
-     *          get alias, if not alias found throw exception
-     *                      if not same table, throw exception
-     *                       if more than one result, throw exce
-     *          if comment, next
-     *          value = column3 as string, or column 4 parsed as php date
-     *                      if both columns 3 and 4 are not empty throw exception
-     *          node[this_field] = value
-     *      endelse
+    logic:
+1) seperate everything into blocks, if single lines then they go into main blocks, all other blocks go into block_list
+
+2)
+structure is {main,installs}
+Go through each block in block list,
+see if its a child block, or parent block
+
+ its a child block if
+1) has tile,siding,stone,paint,trim in the first line name
+2) a block has a brand,type,color
+ else its a parent block
+
+  last_parent_block = nil
+  loop (blocks in list) {
+  do
+    if child block attach to parent_block_children, error if no last_parent_block
+    if parent block put in installs, and make this the last parent_block
+  block has type: ii
+  children: []
+  data: []
      *
      */
     $ret = [];
+
+    # first pass, add to main block, or add data to node and put in other blocks
     $num_rec=$dbf->dbf_num_rec;
+    $main_block = [];
+    $blocks = [];
+    $this_block = [];
     for($i=0; $i<$num_rec; $i++) {
         $row = $dbf->getRow($i);
+        if (empty($row[1])) {
+            if (sizeof($this_block) == 1) {
+                foreach ($this_block as $k=>$v) {
+                    $main_block[$k] = $v;
+                }
+
+            } else if(sizeof($this_block) == 0 ) {
+                continue;
+            } else {
+                array_push($blocks,$this_block);
+            }
+            $this_block = [];
+        } else {
+            $w = (empty($row[2])) ? $row[3] : $row[2];
+            $this_block[$row[1]] = $w;
+        }
+
+
 
 
     }
 
+    //now go through each of the $blocks, and put the children with the parents
+    $node_list = [];
+
+    $last_parent_index = -1;
+    for($i = 0; $i < sizeof($blocks); $i++) {
+        $b = $blocks[$i];
+        $first_line = reset($b);
+        foreach ($b as $k=>$v) {
+            if (empty($k)) {
+                $first_line = $v;
+            } else {
+                $first_line = $k;
+            }
+            break;
+        }
+        if (empty($first_line)) {
+            throw new Exception("Empty for $i");
+        }
+        #has tile,siding,stone,paint,trim in the first line name, but not painting
+        $words_for_children = ['tile','siding','stone','paint','trim'];
+        $words_for_grownups = ['painting'];
+        $b_is_child = false;
+        foreach ($words_for_children as $word) {
+            if (stripos($first_line, $word) !== false) {
+                $b_is_child = true;
+                break;
+            }
+        }
+        if ($b_is_child) {
+            foreach ($words_for_grownups as $word) {
+                if (stripos($first_line, $word) !== false) {
+                    $b_is_child = false;
+                    break;
+                }
+            }
+        } else {
+            //if not a child , it might still be if it has the keys: brand, type, color
+            $match_columns = ['brand'=>0,'type'=>0,'color'=>0];
+            $count_matches = 0;
+            foreach ($b as $k=>$v) {
+                foreach ($match_columns as $word=>$count) {
+                    if ($count == 0) {
+                        if (stripos($k, $word) !== false) {
+                            $count_matches ++;
+                            $match_columns[$word] += 1;
+                        }
+                    }
+
+                }
+            }
+            if ($count_matches == sizeof($match_columns)) { //matched all three columns
+                $b_is_child = true;
+            }
+
+        }
+
+
+
+        if ($b_is_child) {
+            if ($last_parent_index < 0) {
+                throw new Exception('Parent was null for the child');
+            }
+            $node = ['type'=>'xx','data'=>$b];
+            $node_list[$last_parent_index]['children'][] = $node;
+        } else {
+            $node = ['type'=>'ii','data'=>$b,'children'=>[]];
+            $node_list[] = $node;
+            $last_parent_index = sizeof($node_list) -1;
+        }
+
+
+
+    }
+    $ret = ['main'=>$main_block,'blocks'=>$node_list];
     return $ret;
 }
 

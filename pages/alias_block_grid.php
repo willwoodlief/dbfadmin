@@ -32,8 +32,10 @@ for($i=0; $i<sizeof($alias); $i++) {
 
 $table_names_for_us = ['contractor', 'homebuilder', 'parking', 'pricecomparison',
     'propertyactivity', 'propertyconstruction', 'propertydeed', 'propertydocuments',
-    'propertygf', 'propertyitem', 'propertyiteminstallation', 'propertypaint',
+    'propertygf', 'propertyitem', 'propertyiteminstallation', 'propertymain','propertypaint',
     'propertypermit', 'storage', 'swimmingpool' ];
+sort($table_names_for_us);
+
 $table_name_string = ':';
 for($i=0; $i < sizeof($table_names_for_us); $i++) {
     $name = $table_names_for_us[$i];
@@ -42,12 +44,12 @@ for($i=0; $i < sizeof($table_names_for_us); $i++) {
 
 ?>
 <!-- important to keep class main-header as this is where notifications from grid system go -->
-<div class="main-header" style="width: 800px"></div>
+<div class="main-header" style="width: 830px"></div>
 <button type="button" class="bgb-button " id="make-new-row" onclick="create_new_row()">
     New Block Alias
 </button>
 
-    <div style="width:740px;" style="padding: 0px;margin: 0px">
+    <div style="width:810px;" style="padding: 0px;margin: 0px">
         <div id="myGrid" data-gridvar='grid_var' style="width:100%;height:500px;padding: 0px;margin: 0px"></div>
     </div>
 
