@@ -1,34 +1,30 @@
 <?php
 
+
 function upload_data_from_file($filepath) {
+
     $errors = [];
     try {
-        $dbf = new dbf_class($filepath);
-        $type_file = get_type_of_file($dbf) ;
-        if ($type_file == 'property' ) {
-            $g = get_property_hash($dbf);
-            Session::put('last_property_uploaded',$g);
-            add_single_property_to_db($g);
-
-        } elseif ( $type_file == 'list') {
-            add_list_to_db($dbf);
+        $blocker = new Blocks($filepath);
+        if ($blocker->hasErrors()) {
+            $errors = $blocker->getErrors();
         } else {
-            throw new Exception('Cannot identify type of file, return type was '.$type_file );
+            $blocks = $blocker->getBlocks();
+            Session::put('last_property_uploaded',$blocks);
+            writeBlocksToDB($blocks);
         }
     }
     catch (Exception $e) {
         array_push($errors,$e->getMessage());
     }
-
-
     return $errors;
 }
 
-//returns either property or list
-function get_type_of_file($dbf) {
-    if ($dbf->dbf_num_field == 4) { return 'property'; }
-    return 'list';
+function writeBlocksToDB($blocks) {
+
 }
+
+
 
 function get_property_hash($dbf) {
 
@@ -78,8 +74,10 @@ see if its a child block, or parent block
             }
             $this_block = [];
         } else {
-            $w = (empty($row[2])) ? $row[3] : $row[2];
-            $this_block[$row[1]] = $w;
+            $w_unkwn = (empty($row[2])) ? $row[3] : $row[2];
+            $w = ForceUTF8\Encoding::toUTF8($w_unkwn);
+            $kk = ForceUTF8\Encoding::toUTF8($row[1]);
+            $this_block[$kk] = $w;
         }
 
 
@@ -91,8 +89,10 @@ see if its a child block, or parent block
     $node_list = [];
 
     $last_parent_index = -1;
+    $last_type_block = false;
     for($i = 0; $i < sizeof($blocks); $i++) {
         $b = $blocks[$i];
+        $type_block = determine_block_type($b,$last_type_block);
         $first_line = reset($b);
         foreach ($b as $k=>$v) {
             if (empty($k)) {
@@ -162,6 +162,10 @@ see if its a child block, or parent block
     }
     $ret = ['main'=>$main_block,'blocks'=>$node_list];
     return $ret;
+}
+
+function determine_block_type($b,$last_type_block) {
+
 }
 
 function add_single_property_to_db($propertyHash) {
@@ -311,7 +315,12 @@ function printOkJSONAndDie($phpArray=[]) {
     header('Content-Type: application/json');
     $phpArray['status'] = 'ok';
     $phpArray['valid'] = true;
-    print json_encode($phpArray);
+    $out = json_encode($phpArray);
+    if ($out) {
+        print $out;
+    } else {
+        printErrorJSONAndDie( json_last_error_msg());
+    }
     exit;
 }
 
@@ -320,10 +329,33 @@ function printErrorJSONAndDie($message,$phpArray=[]) {
     $phpArray['status'] = 'error';
     $phpArray['valid'] = false;
     $phpArray['message'] = $message;
-    print json_encode($phpArray);
+    $out = json_encode($phpArray);
+    if ($out) {
+        print $out;
+    } else {
+        print json_last_error_msg();
+    }
+
     exit;
 }
 
+function printLastJsonError() {
+    if (!function_exists('json_last_error_msg')) {
+        function json_last_error_msg() {
+            static $ERRORS = array(
+                JSON_ERROR_NONE => 'No error',
+                JSON_ERROR_DEPTH => 'Maximum stack depth exceeded',
+                JSON_ERROR_STATE_MISMATCH => 'State mismatch (invalid or malformed JSON)',
+                JSON_ERROR_CTRL_CHAR => 'Control character error, possibly incorrectly encoded',
+                JSON_ERROR_SYNTAX => 'Syntax error',
+                JSON_ERROR_UTF8 => 'Malformed UTF-8 characters, possibly incorrectly encoded'
+            );
+
+            $error = json_last_error();
+            return isset($ERRORS[$error]) ? $ERRORS[$error] : 'Unknown error';
+        }
+    }
+}
 
 
 //for debugging

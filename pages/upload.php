@@ -3,7 +3,10 @@ require_once '../users/init.php';
 require_once $abs_us_root.$us_url_root.'users/includes/header.php';
 require_once $abs_us_root.$us_url_root.'users/includes/navigation.php';
 require_once $abs_us_root.$us_url_root.'pages/helpers/pages_helper.php';
-require_once $abs_us_root.$us_url_root.'lib/dbf/file_byte_reader.php';
+require_once $abs_us_root.$us_url_root.'pages/helpers/ziphelper.php';
+require_once $abs_us_root.$us_url_root.'lib/blocks.php';
+require_once $abs_us_root.$us_url_root.'lib/ForceUTF8/Encoding.php';
+
 require_once $abs_us_root.$us_url_root.'users/includes/navigation.php';
 require_once $abs_us_root.$us_url_root.'lib/dbf/dbf_class.php';
 ?>
@@ -31,18 +34,32 @@ if(isset($_POST['uploads'])) {
     }
 
 
-
     if (isset( $_FILES['dbf_file']) && !empty( $_FILES['dbf_file']['tmp_name'])) {
         $dbf_file_path = $_FILES['dbf_file']['tmp_name'];
+
+        //run it past the zip checker
+        try {
+
+            $zipper = new GetOneFileFromZip($dbf_file_path);
+            if ($zipper->isZipFile()) {
+                $dbf_file_path = $zipper->getExtractedTempFilePath();
+                //zipper will delete the file on the close of this script
+            }
+        }
+        catch (Exception $e) {
+            $validation->addError($e->getMessage());
+            $error_count++;
+        }
+
     } else {
         $validation->addError('Need a file uploaded');
         $error_count++;
     }
 
 
-
-    if ($dbf_file_path) {
+    if ($dbf_file_path && $error_count == 0) {
         // do something with $dbf_file_path
+        //is it zipped ? if so then we need to unzip it and put it in another temp folder
         $errors = upload_data_from_file($dbf_file_path);
         for($i=0; $i < sizeof($errors); $i++) {
             $error_count++;

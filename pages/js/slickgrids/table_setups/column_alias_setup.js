@@ -46,6 +46,18 @@ function ThisFrameSlickgridSetup() {
   this.get_columns = function(myFormatterObject,myValidatorObject,mySorterObject) {
       return [
           {
+              id: "form_name",
+              name: 'Data Form',
+              field: "form_name",
+              width: 100,
+              minWidth: 40,
+              editor: myFormatterObject.SelectCellEditor,
+              formatter: myFormatterObject.selectFormatter,
+              validator: myValidatorObject.remoteCallValidator,
+              options: options_for_form_names,
+              sortable: true
+          },
+          {
               id: "name_regex_alias",
               name: 'Pattern for Name',
               field: "name_regex_alias",
@@ -97,6 +109,18 @@ function ThisFrameSlickgridSetup() {
               formatter: myFormatterObject.MyCheckBoxFormatter,
               editor: myFormatterObject.MyCheckBoxEditor,
               validator: myValidatorObject.remoteCallValidator,
+              sortable: true
+          },
+
+          {
+              id: "rank",
+              name: 'Rank',
+              field: "rank",
+              width: 50,
+              minWidth: 50,
+              editor: Slick.Editors.Text,
+              validator: myValidatorObject.remoteCallValidator,
+              formatter: null,
               sortable: true
           },
 

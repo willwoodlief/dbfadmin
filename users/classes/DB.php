@@ -75,9 +75,15 @@ class DB {
 		return $this->action('SELECT *',$table,array('id','=',$id));
 	}
 
-	public function action($action, $table, $where = array()){
+	public function action($action, $table, $where = array(),$orderby=false){
 		$sql = "{$action} FROM {$table}";
 		$value = '';
+        if ($orderby) {
+            $order_string = $orderby;
+        } else {
+            $order_string = '';
+        }
+
 		if (count($where) === 3) {
 			$operators = array('=', '>', '<', '>=', '<=');
 
@@ -85,18 +91,21 @@ class DB {
 			$operator = $where[1];
 			$value = $where[2];
 
+
 			if(in_array($operator, $operators)){
-				$sql .= " WHERE {$field} {$operator} ?";
+				$sql .= " WHERE {$field} {$operator} ? ";
 			}
 		}
+
+		$sql .= ' '. $order_string;
 		if (!$this->query($sql, array($value))->error()) {
 			return $this;
 		}
 		return false;
 	}
 
-	public function get($table, $where){
-		return $this->action('SELECT *', $table, $where);
+	public function get($table, $where,$order = false){
+		return $this->action('SELECT *', $table, $where,$order);
 	}
 
 	public function delete($table, $where){

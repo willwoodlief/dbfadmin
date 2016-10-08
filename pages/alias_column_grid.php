@@ -27,9 +27,13 @@ $table_names_for_us = ['contractor', 'homebuilder', 'parking', 'pricecomparison'
 
 sort($table_names_for_us);
 
+$form_names_for_us= ['Property', 'List' ];
+
+sort($form_names_for_us);
+
 $column_names = get_column_names_hash($table_names_for_us);
 
-$alias_query = $db->get('wx_alias_column',[]);
+$alias_query = $db->get('wx_alias_column',[],'ORDER BY rank ASC');
 $alias = $alias_query->results();
 $alias = json_decode(json_encode($alias),true);
 //have to add something to delete the row
@@ -44,6 +48,13 @@ for($i=0; $i < sizeof($table_names_for_us); $i++) {
     $name = $table_names_for_us[$i];
     $table_name_string .= ",$name:$name";
 }
+
+$form_name_string = ':';
+for($i=0; $i < sizeof($form_names_for_us); $i++) {
+    $name = $form_names_for_us[$i];
+    $form_name_string .= ",$name:$name";
+}
+
 
 
 //convert each entry of column names to encoded select statement
@@ -64,13 +75,14 @@ foreach ($column_names as $table => $entry) {
     New Column Alias
 </button>
 
-    <div style="width:890px;" style="padding: 0px;margin: 0px">
+    <div  style="width:1040px;padding: 0px;margin: 0px">
         <div id="myGrid" data-gridvar='grid_var' style="width:100%;height:500px;padding: 0px;margin: 0px"></div>
     </div>
 
 <script>
     var table_data = <?= json_encode($alias) ;?>;
     var options_for_table_names = '<?=$table_name_string?>';
+    var options_for_form_names = '<?=$form_name_string?>';
     var options_for_columns = <?= json_encode($cols_lookup) ;?>;
 </script>
 

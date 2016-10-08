@@ -16,7 +16,7 @@ else {
             <div class="row">
                 <div class="col-sm-12">
                     <h1 class="page-header">
-                        Welcome to Card Transcription
+                        Welcome to DBF Admin
                     </h1>
                     <!-- Content goes here -->
 
