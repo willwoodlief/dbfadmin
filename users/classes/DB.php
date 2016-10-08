@@ -18,173 +18,185 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 class DB {
-	private static $_instance = null;
-	private $_pdo, $_query, $_error = false, $_results, $_resultsArray, $_count = 0, $_lastId, $_queryCount=0,$_errorInfo;
+    private static $_instance = null;
+    private $_pdo, $_query, $_error = false, $_results, $_resultsArray,
+        $_count = 0, $_lastId, $_queryCount=0,$_errorInfo,
+        $_sql = '';
 
-	private function __construct(){
-		try{
-			$this->_pdo = new PDO('mysql:host=' .
-				Config::get('mysql/host') .';dbname='. 
-				Config::get('mysql/db'), 
-				Config::get('mysql/username'), 
-				Config::get('mysql/password'),
-				array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET SESSION sql_mode = ''"));
-		} catch(PDOException $e){
-			die($e->getMessage());
-		}
-	}
+    private function __construct(){
+        try{
+            $this->_pdo = new PDO('mysql:host=' .
+                Config::get('mysql/host') .';dbname='.
+                Config::get('mysql/db'),
+                Config::get('mysql/username'),
+                Config::get('mysql/password'),
+                array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET SESSION sql_mode = ''"));
+            // $this->_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        } catch(PDOException $e){
+            die($e->getMessage());
+        }
+    }
 
-	public static function getInstance(){
-		if (!isset(self::$_instance)) {
-			self::$_instance = new DB();
-		}
-		return self::$_instance;
-	}
+    public static function getInstance(){
+        // return new DB();
 
-	public function query($sql, $params = array()){
-		$this->_queryCount++;
-		$this->_error = false;
+        if (!isset(self::$_instance)) {
+            self::$_instance = new DB();
+        }
+        return self::$_instance;
+    }
+
+    public function query($sql, $params = array()){
+        $this->_queryCount++;
+        $this->_error = false;
         $this->_errorInfo = [];
-		if ($this->_query = $this->_pdo->prepare($sql)) {
-			$x = 1;
-			if (count($params)) {
-				foreach ($params as $param) {
-					$this->_query->bindValue($x, $param);
-					$x++;
-				}
-			}
+        $this->_sql = $sql;
+        if ($this->_query = $this->_pdo->prepare($sql)) {
+            $x = 1;
+            if (count($params)) {
+                foreach ($params as $param) {
+                    $this->_query->bindValue($x, $param);
+                    $x++;
+                }
+            }
 
-			if ($this->_query->execute()) {
-				$this->_results = $this->_query->fetchALL(PDO::FETCH_OBJ);
-				$this->_resultsArray = json_decode(json_encode($this->_results),true);
-				$this->_count = $this->_query->rowCount();
-				$this->_lastId = $this->_pdo->lastInsertId();
-			} else{
-				$this->_error = true;
+            if ($this->_query->execute()) {
+                $this->_results = $this->_query->fetchALL(PDO::FETCH_OBJ);
+                $this->_resultsArray = json_decode(json_encode($this->_results),true);
+                $this->_count = $this->_query->rowCount();
+                $this->_lastId = $this->_pdo->lastInsertId();
+
+            } else{
+                $this->_error = true;
                 $this->_errorInfo = $this->_pdo->errorInfo();
-			}
-		}
-		return $this;
-	}
+            }
 
-	public function findAll($table){
-		return $this->action('SELECT *',$table);
-	}
+        }
+        return $this;
+    }
 
-	public function findById($id,$table){
-		return $this->action('SELECT *',$table,array('id','=',$id));
-	}
+    public function findAll($table){
+        return $this->action('SELECT *',$table);
+    }
 
-	public function action($action, $table, $where = array(),$orderby=false){
-		$sql = "{$action} FROM {$table}";
-		$value = '';
+    public function findById($id,$table){
+        return $this->action('SELECT *',$table,array('id','=',$id));
+    }
+
+    public function action($action, $table, $where = array(),$orderby=false){
+        $sql = "{$action} FROM {$table}";
+        $value = '';
         if ($orderby) {
             $order_string = $orderby;
         } else {
             $order_string = '';
         }
 
-		if (count($where) === 3) {
-			$operators = array('=', '>', '<', '>=', '<=');
+        if (count($where) === 3) {
+            $operators = array('=', '>', '<', '>=', '<=');
 
-			$field = $where[0];
-			$operator = $where[1];
-			$value = $where[2];
+            $field = $where[0];
+            $operator = $where[1];
+            $value = $where[2];
 
 
-			if(in_array($operator, $operators)){
-				$sql .= " WHERE {$field} {$operator} ? ";
-			}
-		}
+            if(in_array($operator, $operators)){
+                $sql .= " WHERE {$field} {$operator} ? ";
+            }
+        }
 
-		$sql .= ' '. $order_string;
-		if (!$this->query($sql, array($value))->error()) {
-			return $this;
-		}
-		return false;
-	}
+        $sql .= ' '. $order_string;
+        if (!$this->query($sql, array($value))->error()) {
+            return $this;
+        }
+        return false;
+    }
 
-	public function get($table, $where,$order = false){
-		return $this->action('SELECT *', $table, $where,$order);
-	}
+    public function get($table, $where,$order = false){
+        return $this->action('SELECT *', $table, $where,$order);
+    }
 
-	public function delete($table, $where){
-		return $this->action('DELETE', $table, $where);
-	}
+    public function delete($table, $where){
+        return $this->action('DELETE', $table, $where);
+    }
 
-	public function deleteById($table,$id){
-		return $this->action('DELETE',$table,array('id','=',$id));
-	}
+    public function deleteById($table,$id){
+        return $this->action('DELETE',$table,array('id','=',$id));
+    }
 
-	public function insert($table, $fields = array()){
-		$keys = array_keys($fields);
-		$values = null;
-		$x = 1;
+    public function insert($table, $fields = array()){
+        $keys = array_keys($fields);
+        $values = null;
+        $x = 1;
 
-		foreach ($fields as $field) {
-			$values .= "?";
-			if ($x < count($fields)) {
-				$values .= ', ';
-			}
-			$x++;
-		}
+        foreach ($fields as $field) {
+            $values .= "?";
+            if ($x < count($fields)) {
+                $values .= ', ';
+            }
+            $x++;
+        }
 
-		$sql = "INSERT INTO {$table} (`". implode('`,`', $keys)."`) VALUES ({$values})";
-		
-		if (!$this->query($sql, $fields)->error()) {
-			return true;
-		}
-		return false;
-	}
+        $sql = "INSERT INTO {$table} (`". implode('`,`', $keys)."`) VALUES ({$values})";
 
-	public function update($table, $id, $fields){
-		$set = '';
-		$x = 1;
+        if (!$this->query($sql, $fields)->error()) {
+            return true;
+        }
+        return false;
+    }
 
-		foreach ($fields as $name => $value) {
-			$set .= "{$name} = ?";
-			if ($x < count($fields)) {
-				$set .= ', ';
-			}
-			$x++;
-		}
+    public function update($table, $id, $fields){
+        $set = '';
+        $x = 1;
 
-		$sql = "UPDATE {$table} SET {$set} WHERE id = {$id}";
+        foreach ($fields as $name => $value) {
+            $set .= "{$name} = ?";
+            if ($x < count($fields)) {
+                $set .= ', ';
+            }
+            $x++;
+        }
 
-		if (!$this->query($sql, $fields)->error()) {
-			return true;
-		}
-		return false;
-	}
+        $sql = "UPDATE {$table} SET {$set} WHERE id = {$id}";
 
-	public function results($assoc = false){
-		if($assoc) return $this->_resultsArray;
-		return $this->_results;
-	}
+        if (!$this->query($sql, $fields)->error()) {
+            return true;
+        }
+        return false;
+    }
 
-	public function first(){
-		return $this->results()[0];
-	}
+    public function results($assoc = false){
+        if($assoc) return $this->_resultsArray;
+        return $this->_results;
+    }
 
-	public function count(){
-		return $this->_count;
-	}
+    public function first(){
+        return $this->results()[0];
+    }
 
-	public function error(){
-		return $this->_error;
-	}
+    public function count(){
+        return $this->_count;
+    }
+
+    public function error(){
+        return $this->_error;
+    }
 
     public function error_info(){
         return $this->_errorInfo;
     }
 
 
-	public function lastId(){
-		return $this->_lastId;
-	}
-	
-	public function getQueryCount(){
-		return $this->_queryCount;
-	}	
-	
+    public function lastId(){
+        return $this->_lastId;
+    }
+
+    public function getQueryCount(){
+        return $this->_queryCount;
+    }
+
+    public function getLastSQL() {
+        return $this->_sql;
+    }
+
 }

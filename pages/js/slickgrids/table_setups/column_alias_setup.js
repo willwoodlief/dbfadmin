@@ -12,6 +12,7 @@ function ThisFrameSlickgridSetup() {
     this.setup_add_object = function(my_object){
         my_object.action = 'new';
         my_object.table_name = 'column';
+        my_object.template_id = template_id;
     };
 
     this.setup_edit_object = function(my_object){
@@ -21,6 +22,10 @@ function ThisFrameSlickgridSetup() {
 
     this.get_ajax_url = function() {
         return 'ajax_aliases.php';
+    };
+
+    this.row_click = function(data,row,cell) {
+
     };
 
     this.post_process_data = function(field,all_column_data,server_response,cell_data) {
@@ -45,23 +50,12 @@ function ThisFrameSlickgridSetup() {
 
   this.get_columns = function(myFormatterObject,myValidatorObject,mySorterObject) {
       return [
-          {
-              id: "form_name",
-              name: 'Data Form',
-              field: "form_name",
-              width: 100,
-              minWidth: 40,
-              editor: myFormatterObject.SelectCellEditor,
-              formatter: myFormatterObject.selectFormatter,
-              validator: myValidatorObject.remoteCallValidator,
-              options: options_for_form_names,
-              sortable: true
-          },
+
           {
               id: "name_regex_alias",
               name: 'Pattern for Name',
               field: "name_regex_alias",
-              width: 230,
+              width: 250,
               minWidth: 40,
               editor: Slick.Editors.Text,
               validator: myValidatorObject.remoteCallValidator,
@@ -93,6 +87,54 @@ function ThisFrameSlickgridSetup() {
               formatter: myFormatterObject.selectFormatter,
               validator: myValidatorObject.remoteCallValidator,
               options: '',
+              //sorter: mySorterObject.SelectNameSorter,
+              sortable: true
+
+
+          },
+
+          {
+              id: "flag_to_raise",
+              name: 'Flag to Raise',
+              field: "flag_to_raise",
+              width: 100,
+              minWidth: 20,
+              editor: myFormatterObject.SelectCellEditor,
+              formatter: myFormatterObject.selectFormatter,
+              validator: myValidatorObject.remoteCallValidator,
+              options: options_for_flags,
+              //sorter: mySorterObject.SelectNameSorter,
+              sortable: true
+
+
+          },
+
+          {
+              id: "flag_needed_a",
+              name: 'Context',
+              field: "flag_needed_a",
+              width: 100,
+              minWidth: 20,
+              editor: myFormatterObject.SelectCellEditor,
+              formatter: myFormatterObject.selectFormatter,
+              validator: myValidatorObject.remoteCallValidator,
+              options: options_for_flags,
+              //sorter: mySorterObject.SelectNameSorter,
+              sortable: true
+
+
+          },
+
+          {
+              id: "flag_needed_b",
+              name: 'Other Context',
+              field: "flag_needed_b",
+              width: 100,
+              minWidth: 20,
+              editor: myFormatterObject.SelectCellEditor,
+              formatter: myFormatterObject.selectFormatter,
+              validator: myValidatorObject.remoteCallValidator,
+              options: options_for_flags,
               //sorter: mySorterObject.SelectNameSorter,
               sortable: true
 

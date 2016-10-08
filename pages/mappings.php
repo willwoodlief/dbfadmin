@@ -24,18 +24,17 @@ if ($settings->site_offline==1){die("The site is currently offline.");}
                 <!-- Content goes here -->
                 <div id="maping-tab-container"  >
                     <ul class="nav nav-tabs tabs-to-lazy-load-iframes" id="mapping-tabs" >
-                        <li class="nav active"><a href="#completed-jobs" data-toggle="tab">Block Alias</a></li>
-                        <li class="nav"><a href="#waiting-for-checks" data-toggle="tab">Column Alias</a></li>
-
+                        <li class="nav active"><a href="#completed-jobs" data-toggle="tab">Templates</a></li>
+                        <li class="nav"><a href="#template_columns" data-toggle="tab">Columns for templates</a></li>
                     </ul>
                     <div class="tab-content">
                         <div class="tab-pane fade in active" id="completed-jobs" >
-                            <iframe src="alias_block_grid.php" name="completed-grid-table" id="completed-grid-table" height="600px" width="950px" style="border:0 none;"></iframe>
+                            <iframe src="template_grid.php" name="template-table" id="template-table" height="600px" width="1300px" style="border:0 none;"></iframe>
 
                         </div>
 
-                        <div class="tab-pane fade" id="waiting-for-checks" data-src="alias_column_grid.php" >
-                            <iframe src="" id="waiting-checks-grid-table" height="550px" width="1100px" style="border:0 none;"></iframe>
+                        <div class="tab-pane fade" id="template_columns" data-src="alias_column_grid.php?template_id=1" >
+                            <iframe src="" id="waiting-checks-grid-table" height="600px" width="1300px" style="border:0 none;"></iframe>
                         </div>
 
 
@@ -59,6 +58,8 @@ if ($settings->site_offline==1){die("The site is currently offline.");}
 
 <!-- Place any per-page javascript here -->
 <script src="js/lazy_load_tabs.js"></script>
+<script src="js/mapping.js"></script>
+
 
 
 

@@ -15,11 +15,32 @@ if (!securePage($_SERVER['PHP_SELF'])){die(); }
 
 ?>
 
+<style>
+    .template-name {
+        text-align: center;
+        font-size: larger;
+        font-weight: bold;
+    }
+</style>
+
 </head>
 
 <body style="background-color: floralwhite">
 
 <?php
+
+$template_id = intval(Input::get('template_id'));
+if (!$template_id) {
+    die("Need Template ID");
+}
+
+$template_info = $db->query('select * from wx_templates where id = ?', [$template_id]);
+$templateO = $template_info->first();
+if (!$templateO) {
+    die("Cound not find template info for tempate # ".$template_id );
+}
+$template = json_decode(json_encode($templateO),false);
+
 $table_names_for_us = ['contractor', 'homebuilder', 'parking', 'pricecomparison',
     'propertyactivity', 'propertyconstruction', 'propertydeed', 'propertydocuments',
     'propertygf', 'propertyitem', 'propertyiteminstallation','propertymain', 'propertypaint',
@@ -27,13 +48,16 @@ $table_names_for_us = ['contractor', 'homebuilder', 'parking', 'pricecomparison'
 
 sort($table_names_for_us);
 
-$form_names_for_us= ['Property', 'List' ];
 
-sort($form_names_for_us);
 
 $column_names = get_column_names_hash($table_names_for_us);
 
-$alias_query = $db->get('wx_alias_column',[],'ORDER BY rank ASC');
+$flagsQ = $db->query('select * from wx_template_flags where 1 ORDER BY name,priority ASC',[]);
+$flagsO = $flagsQ->results();
+$flags = json_decode(json_encode($flagsO),false);
+
+
+$alias_query = $db->query('select * from wx_template_columns where wx_template_id = ? ORDER BY rank ASC',[$template_id]);
 $alias = $alias_query->results();
 $alias = json_decode(json_encode($alias),true);
 //have to add something to delete the row
@@ -49,10 +73,11 @@ for($i=0; $i < sizeof($table_names_for_us); $i++) {
     $table_name_string .= ",$name:$name";
 }
 
-$form_name_string = ':';
-for($i=0; $i < sizeof($form_names_for_us); $i++) {
-    $name = $form_names_for_us[$i];
-    $form_name_string .= ",$name:$name";
+$flag_string = ':';
+for($i=0; $i < sizeof($flags); $i++) {
+    $name = $flags[$i]->name;
+    $id = $flags[$i]->id;
+    $flag_string .= ",$name:$id";
 }
 
 
@@ -71,19 +96,23 @@ foreach ($column_names as $table => $entry) {
 ?>
 <!-- important to keep class main-header as this is where notifications from grid system go -->
 <div class="main-header" style="width: 950px"></div>
+<div class="template-name">
+    <span><?= $template->name ?></span>
+</div>
 <button type="button" class="bgb-button " id="make-new-row" onclick="create_new_row()">
     New Column Alias
 </button>
 
-    <div  style="width:1040px;padding: 0px;margin: 0px">
+    <div  style="width:1290px;padding: 0px;margin: 0px">
         <div id="myGrid" data-gridvar='grid_var' style="width:100%;height:500px;padding: 0px;margin: 0px"></div>
     </div>
 
 <script>
     var table_data = <?= json_encode($alias) ;?>;
     var options_for_table_names = '<?=$table_name_string?>';
-    var options_for_form_names = '<?=$form_name_string?>';
+    var options_for_flags = '<?=$flag_string?>';
     var options_for_columns = <?= json_encode($cols_lookup) ;?>;
+    var template_id = <?= $template_id ?>;
 </script>
 
 <?php require_once  'includes/slickgrid_js_includes.php'?>

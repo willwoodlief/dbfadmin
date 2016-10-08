@@ -39,7 +39,7 @@ function SlickSetup(setup) {
         if (!data) {
             return;
         }
-
+        this.setup.row_click(data,row,cell);
 
     };
 

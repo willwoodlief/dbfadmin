@@ -13,25 +13,29 @@ try {
     $db = DB::getInstance();
     $user = new User();
     $action = Input::get('action');
-    $table_key = Input::get('table_name');
-    $allowed_tables = ['column'=>'wx_template_columns'];
-    if (isset($allowed_tables[$table_key])) {
-        $table_name = $allowed_tables[$table_key];
-    } else {
-        printErrorJSONAndDie("Invalid table name of $table_key");
-    }
+
     if (empty($action)) {
         printErrorJSONAndDie('need action');
     }
+    $table_name = 'wx_templates';
     switch ($action) {
-        case 'new': {
-            $template_id = intval(Input::get('template_id'));
-            if ($template_id <= 0 ){
-                printErrorJSONAndDie("Need a template id");
+
+        case 'set_default' : {
+            $blob_id = intval(Input::get('template_id'));
+
+            if ($blob_id == 0) {
+                $blob_id = null;
             }
-            $check = $db->insert($table_name,['app_user_id' => $user->data()->id,'wx_template_id'=>$template_id]);
+            $fields=array('wx_template_id'=>$blob_id);
+            $db->update('app_settings',1,$fields);
+            printOkJSONAndDie('set default to '.$blob_id);
+        }
+
+        case 'new': {
+
+            $check = $db->insert($table_name,['created_by_user_id' => $user->data()->id,'ts_created_at'=>time()]);
             if (!$check) {
-                printErrorJSONAndDie('Could not create new record');
+                printErrorJSONAndDie('Could not create new template');
             }
             $last_id = $db->lastId();
             $row = $db->get($table_name, array('id', '=', $last_id));
@@ -65,35 +69,21 @@ try {
             $params = $_POST['param'];
             $data_to_change = $params[$changed_field];
             switch ($changed_field) {
-                case 'dependency_level': {
-                    $valye = intval($data_to_change);
+                case 'name': {
+                    $valye = to_utf8(Input::sanitize($data_to_change));
                     break;
                 }
-                case 'is_ignored': {
-                    if ($data_to_change == 'true') {
-                        $data_to_change = 1;
-                    }
-                    $valye = intval($data_to_change);
-                    if ($valye != 0) {
-                        $valye = 1;
-                    }
+                case 'notes': {
+                    $valye = to_utf8(Input::sanitize($data_to_change));
                     break;
                 }
-                case 'flag_to_raise':
-                case 'flag_needed_a':
-                case 'flag_needed_b': {
-                    $valye = intval($data_to_change);
-                    if ($valye <= 0) {
-                        $valye = null;
-                    }
-                     break;
-                }
-                default: {
 
+                default: {
+                    //do nothing
                     $valye = to_utf8(Input::sanitize($data_to_change));
                 }
             }
-            $update_hash = ['app_user_id' => $user->data()->id,$changed_field => $valye];
+            $update_hash = ['ts_modified_at' => time(),$changed_field => $valye];
 
             $db->update($table_name,$blob_id,$update_hash);
             printOkJSONAndDie();

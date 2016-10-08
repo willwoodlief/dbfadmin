@@ -1,5 +1,10 @@
 <?php
+$real =   realpath( dirname( __FILE__ ) );
+require_once $real.'/../../lib/ForceUTF8/Encoding.php';
 
+function to_utf8($what) {
+    return ForceUTF8\Encoding::toUTF8($what);
+}
 
 function upload_data_from_file($filepath) {
 
@@ -312,6 +317,11 @@ function rest_helper($url, $params = null, $verb = 'GET', $format = 'json')
 
 
 function printOkJSONAndDie($phpArray=[]) {
+    if (!is_array($phpArray)) {
+        $r=[];
+        $r['message'] = $phpArray;
+        $phpArray = $r;
+    }
     header('Content-Type: application/json');
     $phpArray['status'] = 'ok';
     $phpArray['valid'] = true;
