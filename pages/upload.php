@@ -23,6 +23,18 @@ $validation = new Validate();
 $error_count = 0;
 $dbf_file_path = false ;
 
+#get template name in use
+$template_id = $settings->wx_template_id;
+$template_info = $db->query('select * from wx_templates where id = ?', [$template_id]);
+$templateO = $template_info->first();
+if (!$templateO) {
+    $templateName = null;
+} else {
+    $template = json_decode(json_encode($templateO),false);
+    $template_name = $template->name;
+}
+
+
 
 if(isset($_POST['uploads'])) {
 
@@ -36,6 +48,7 @@ if(isset($_POST['uploads'])) {
 
     if (isset( $_FILES['dbf_file']) && !empty( $_FILES['dbf_file']['tmp_name'])) {
         $dbf_file_path = $_FILES['dbf_file']['tmp_name'];
+        $dbf_file_name =  $_FILES['dbf_file']['name'];
 
         //run it past the zip checker
         try {
@@ -60,7 +73,11 @@ if(isset($_POST['uploads'])) {
     if ($dbf_file_path && $error_count == 0) {
         // do something with $dbf_file_path
         //is it zipped ? if so then we need to unzip it and put it in another temp folder
-        $errors = upload_data_from_file($dbf_file_path);
+        $b_dryrun = Input::get('dryrun') ? true : false;
+
+        //$filepath,$filename,User $user,$template_id, $b_dryrun = false
+        $errors = upload_data_from_file($dbf_file_path,$dbf_file_name,$user,
+                                        $template,$b_dryrun);
         for($i=0; $i < sizeof($errors); $i++) {
             $error_count++;
             $validation->addError($errors[$i]);
@@ -71,8 +88,21 @@ if(isset($_POST['uploads'])) {
 
 
 }
+
+
 ?>
 
+
+<?php if (!$template_name) { ?>
+<div id="page-wrapper">
+
+    <div class="row">
+        <h1>Need to set template to use in the mappings tab</h1>
+        The upload can only happen after a template is set
+    </div>
+</div>
+<?php exit ?>
+<?php }  ?>
 <div id="page-wrapper">
 
     <div class="row">
@@ -101,6 +131,10 @@ if(isset($_POST['uploads'])) {
                     Upload Page
                 </h1>
 
+                <h2> Using Template
+                    <?= $template_name ?>
+                </h2>
+
                 <form class="" enctype="multipart/form-data"  action="upload.php" name="uploads" method="post">
 
 
@@ -110,8 +144,14 @@ if(isset($_POST['uploads'])) {
                         <input type="file" class="form-control" name="dbf_file" id="dbf_file" value="">
                     </div>
 
+                    <div class="form-group">
+
+                        <input type="checkbox" name="dryrun" id="dryrun" value="1">
+                        <label for="dryrun">Test without loading to database</label>
+                    </div>
 
                     <input type="hidden" name="csrf" value="<?=Token::generate();?>" />
+
 
                     <p><input class='btn btn-primary' type='submit' name="uploads" value='Upload Database File' /></p>
                 </form>

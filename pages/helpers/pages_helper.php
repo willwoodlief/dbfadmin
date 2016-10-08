@@ -1,22 +1,28 @@
 <?php
 $real =   realpath( dirname( __FILE__ ) );
 require_once $real.'/../../lib/ForceUTF8/Encoding.php';
+require_once $real.'/../../lib/batch.php';
+require_once $real.'/../../lib/blocks.php';
 
 function to_utf8($what) {
     return ForceUTF8\Encoding::toUTF8($what);
 }
 
-function upload_data_from_file($filepath) {
+function upload_data_from_file($filepath,$filename,User $user,$template, $b_dryrun = false) {
 
     $errors = [];
     try {
-        $blocker = new Blocks($filepath);
-        if ($blocker->hasErrors()) {
-            $errors = $blocker->getErrors();
+
+        $batch = new Batch($template,$filepath,$filename,$user);
+        $blocks = $batch->getBlocks()->getBlocks();
+        Session::put('last_property_uploaded',$blocks);
+
+        if ($batch->hasErrors()) {
+            array_push($errors,$batch->getErrors());
         } else {
-            $blocks = $blocker->getBlocks();
-            Session::put('last_property_uploaded',$blocks);
-            writeBlocksToDB($blocks);
+            if (!$b_dryrun) {
+                writeBlocksToDB($batch);
+            }
         }
     }
     catch (Exception $e) {
@@ -25,177 +31,11 @@ function upload_data_from_file($filepath) {
     return $errors;
 }
 
-function writeBlocksToDB($blocks) {
-
+function writeBlocksToDB(Batch $batch) {
+    $blocks = $batch->getBlocks()->getBlocks();
 }
 
 
-
-function get_property_hash($dbf) {
-
-    /*
-    logic:
-1) seperate everything into blocks, if single lines then they go into main blocks, all other blocks go into block_list
-
-2)
-structure is {main,installs}
-Go through each block in block list,
-see if its a child block, or parent block
-
- its a child block if
-1) has tile,siding,stone,paint,trim in the first line name
-2) a block has a brand,type,color
- else its a parent block
-
-  last_parent_block = nil
-  loop (blocks in list) {
-  do
-    if child block attach to parent_block_children, error if no last_parent_block
-    if parent block put in installs, and make this the last parent_block
-  block has type: ii
-  children: []
-  data: []
-     *
-     */
-    $ret = [];
-
-    # first pass, add to main block, or add data to node and put in other blocks
-    $num_rec=$dbf->dbf_num_rec;
-    $main_block = [];
-    $blocks = [];
-    $this_block = [];
-    for($i=0; $i<$num_rec; $i++) {
-        $row = $dbf->getRow($i);
-        if (empty($row[1])) {
-            if (sizeof($this_block) == 1) {
-                foreach ($this_block as $k=>$v) {
-                    $main_block[$k] = $v;
-                }
-
-            } else if(sizeof($this_block) == 0 ) {
-                continue;
-            } else {
-                array_push($blocks,$this_block);
-            }
-            $this_block = [];
-        } else {
-            $w_unkwn = (empty($row[2])) ? $row[3] : $row[2];
-            $w = ForceUTF8\Encoding::toUTF8($w_unkwn);
-            $kk = ForceUTF8\Encoding::toUTF8($row[1]);
-            $this_block[$kk] = $w;
-        }
-
-
-
-
-    }
-
-    //now go through each of the $blocks, and put the children with the parents
-    $node_list = [];
-
-    $last_parent_index = -1;
-    $last_type_block = false;
-    for($i = 0; $i < sizeof($blocks); $i++) {
-        $b = $blocks[$i];
-        $type_block = determine_block_type($b,$last_type_block);
-        $first_line = reset($b);
-        foreach ($b as $k=>$v) {
-            if (empty($k)) {
-                $first_line = $v;
-            } else {
-                $first_line = $k;
-            }
-            break;
-        }
-        if (empty($first_line)) {
-            throw new Exception("Empty for $i");
-        }
-        #has tile,siding,stone,paint,trim in the first line name, but not painting
-        $words_for_children = ['tile','siding','stone','paint','trim'];
-        $words_for_grownups = ['painting'];
-        $b_is_child = false;
-        foreach ($words_for_children as $word) {
-            if (stripos($first_line, $word) !== false) {
-                $b_is_child = true;
-                break;
-            }
-        }
-        if ($b_is_child) {
-            foreach ($words_for_grownups as $word) {
-                if (stripos($first_line, $word) !== false) {
-                    $b_is_child = false;
-                    break;
-                }
-            }
-        } else {
-            //if not a child , it might still be if it has the keys: brand, type, color
-            $match_columns = ['brand'=>0,'type'=>0,'color'=>0];
-            $count_matches = 0;
-            foreach ($b as $k=>$v) {
-                foreach ($match_columns as $word=>$count) {
-                    if ($count == 0) {
-                        if (stripos($k, $word) !== false) {
-                            $count_matches ++;
-                            $match_columns[$word] += 1;
-                        }
-                    }
-
-                }
-            }
-            if ($count_matches == sizeof($match_columns)) { //matched all three columns
-                $b_is_child = true;
-            }
-
-        }
-
-
-
-        if ($b_is_child) {
-            if ($last_parent_index < 0) {
-                throw new Exception('Parent was null for the child');
-            }
-            $node = ['type'=>'xx','data'=>$b];
-            $node_list[$last_parent_index]['children'][] = $node;
-        } else {
-            $node = ['type'=>'ii','data'=>$b,'children'=>[]];
-            $node_list[] = $node;
-            $last_parent_index = sizeof($node_list) -1;
-        }
-
-
-
-    }
-    $ret = ['main'=>$main_block,'blocks'=>$node_list];
-    return $ret;
-}
-
-function determine_block_type($b,$last_type_block) {
-
-}
-
-function add_single_property_to_db($propertyHash) {
-
-}
-
-function add_list_to_db($dbf) {
-    $num_rec=$dbf->dbf_num_rec;
-    for($i=0; $i<$num_rec; $i++) {
-        if ($row = $dbf->getRow($i)) {
-            $line_hash = getRowHash($row);
-            addRowHashToDB($line_hash);
-        } else {
-
-        }
-    }
-}
-
-function getRowHash($row) {
-    return [];
-}
-
-function addRowHashToDB($line_hash) {
-
-}
 
 #takes the string value, pads it to the left with 0 and makes 3 wide sections
 function get_string_filepath_from_id($i) {
