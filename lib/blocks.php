@@ -94,7 +94,8 @@ class Blocks
                 $this->batch->getRules()->addRow($name,$value);
             }
         }
-        return $this->batch->getRules()->getBlocks();
+        $this->batch->getRules()->finishUpBlocks();
+        return $this->batch->getRules()->getWorkingBlocks();
     }
 
     protected function doPropertyBlocks()
@@ -112,7 +113,8 @@ class Blocks
                 $this->batch->getRules()->addRow($name,$value);
             }
         }
-        return $this->batch->getRules()->getBlocks();
+        $this->batch->getRules()->finishUpBlocks();
+        return $this->batch->getRules()->getWorkingBlocks();
 
 
     }
