@@ -11,13 +11,15 @@ class Rules
      */
     private $errors = [];
     private $errorStats = [];
+    private $defaultMainFlag = null;
     protected $db = null;
     protected $rules = []; //the column table for that template
 
     protected $allFlags = [] ; //indexed by id
     protected $blocks = []; //each block has name,priority and nodes
-    protected $activeFlags = []; //indexed by flag name contains index in the all flags table for the flag table for that flagname
+    protected $activeFlags = []; //indexed by flag name contains {flag,block}
     protected $batch = null;
+
 
     public function __construct(Batch $batch)
     {
@@ -43,6 +45,13 @@ class Rules
             $flagsQ = $this->db->query('select * from wx_template_flags where 1 ORDER BY name,priority ASC',[]);
             $flagsO = $flagsQ->results();
             $flags = json_decode(json_encode($flagsO),false);
+            $this->defaultMainFlag = new stdClass();
+            $this->defaultMainFlag->name = 'default main';
+            $this->defaultMainFlag->priority = 0;
+            $this->defaultMainFlag->notes = 'created dynamically by rulesclass';
+            array_unshift($flags,$this->defaultMainFlag->notes);
+
+
             for($i=0; $i< sizeof($flags); $i++) {
                 $this->allFlags[$flags[$i]->id] = $flags[$i];
             }
@@ -53,6 +62,10 @@ class Rules
                 $this->rules->flag_needed_b = $this->allFlags[$this->rules->flag_needed_b];
             }
 
+            //start the active flags with the 0 priority default main
+            $this->addActiveFlag(0,null);
+
+
 
         } catch (Exception $e) {
             $this->batch->addError( $e->getMessage());
@@ -62,6 +75,8 @@ class Rules
     public function __destruct() {
 
     }
+
+
 
     public function passErrors() {
         if ($this->hasErrors()) {
@@ -98,8 +113,111 @@ class Rules
         // if there is more than one result is an error to too many
 
         //if this has a flag to add, then pop off the active flags of equal to or lesser priority
+        // any poppped off active flags add their blocks to the parent block
+        //for the new block add as parent the active block that is nearest but higher to the priority level
 
-        // start a new flag block which to add this and any other match that has only this priority levvel
+
+        $matches = $this->getMatches($key);
+        if (sizeof($matches) == 0 ) {
+            //add error
+            $this->addError('not_found',$key);
+        } elseif (sizeof($matches) > 1 ) {
+            //add in conflicts
+
+            //make array of ids in the matches array
+            $conflicts = [];
+            for($j=0;$j < sizeof($matches); $j++) {
+                $id = $matches[$j]->id;
+                array_push($conflicts,$id);
+            }
+            $this->addError('conflict',$key,$conflicts);
+        } else {
+            //is just one , see if this result is to be thrown out
+            $rule = $matches[0];
+            if ($rule->is_ignored) {
+                return; //done and nothing else needs to be done, ignored rules do not add to priority stack or have blocks
+            }
+
+            if ($rule->flag_to_raise) {
+                $event = $this->allFlags[$rule->flag_to_raise];
+                $parent_active_flag = null;
+                //see if priority is lower or equal to any of the active rules
+                $takeOut = [];
+                for($k=0; $k < sizeof($this->activeFlags);$k++) {
+                    $flagID = $this->activeFlags[$k]->flagID;
+                    $flag = $this->allFlags[$flagID];
+                    if ($event->priority <= $flag->priority) {
+                        //take out of active flags, and put block, if not empty into parent's children
+
+                        array_push($takeOut,$k);
+                    } else {
+                        if ($flag->priority < $event->priority) {
+                            if (isset($parent_active_flag)) {
+                                /** @noinspection PhpUndefinedFieldInspection */
+                                if ($flag->priority > $this->allFlags[$parent_active_flag->flagID]->priorty) {
+                                    $parent_active_flag = $this->activeFlags[$k];
+                                }
+                            } else {
+                                $parent_active_flag = $this->activeFlags[$k];
+                            }
+                        }
+                    }
+                }
+
+                for($k =0; $k < sizeof($takeOut);$k++) {
+                    $oldNode = array_splice($this->allFlags,$k,1);
+                    $activeFlag = $oldNode[0];
+                    $block = $activeFlag->block;
+                    $flag = $this->allFlags[$activeFlag->flagID];
+                    $name = $flag->db_hint_for_needed;
+                    if ($activeFlag->parent) {
+                        $node = ['name'=>$name,'block'=>$block];
+                        array_push($activeFlag->parent->block['children'],$node);
+                    }
+                }
+
+                //add in new active flag
+                $this->addActiveFlag($event->id,$parent_active_flag);
+
+            } //end adding in an active flag
+
+            //now add the key value pair to the items part of the working active flag block
+            // the working active flag is the one with the highest priority
+            $workingActiveFlag = $this->getWorkingActiveFlag();
+            $workingActiveFlag->block['items'][$key] = $value;
+
+        }
+    }
+
+    private function getWorkingActiveFlag() {
+        $workingActiveFlag = null;
+        $hi = -100;
+        for($k=0; $k < sizeof($this->activeFlags);$k++) {
+            $flagID = $this->activeFlags[$k]->flagID;
+            $flag = $this->allFlags[$flagID];
+            if ($flag->priority > $hi) {
+                $hi = $flag->priority;
+                $workingActiveFlag = $this->activeFlags[$k];
+            }
+        }
+        return $workingActiveFlag;
+    }
+
+    private function addActiveFlag($flagID,$parent) {
+        $activeFlag = new stdClass();
+        $activeFlag->flagID = $flagID; //the default main
+        $activeFlag->block = ['items'=>[],'children'=>[]];
+        $activeFlag->parent = $parent;
+        array_push($this->activeFlags,$activeFlag);
+    }
+
+    private function getActiveFlagIDs() {
+        $ret = [];
+        for($k=0; $k < sizeof($this->activeFlags);$k++) {
+            $flagID = $this->activeFlags[$k]->flagID;
+            array_push($ret,$flagID);
+        }
+        return $ret;
     }
 
     public function getBlocks() { return $this->blocks;}
@@ -121,5 +239,35 @@ class Rules
     protected function errorToString($err) {
         $conflicts = implode(',',$err['conflicts']);
         return $err['type'] . ': ' . $err['key'] . ' ' . $conflicts;
+    }
+
+    private function getMatches($key) {
+        //go through each rule in the rules array and see what matches return as array of rules
+        //get Active Flag ids and put in array for easy access, they change all the time do don't store them
+        $activeFlagIDs = $this->getActiveFlagIDs();
+        $matches = [];
+        for($k=0;$k<sizeof($this->rules); $k++) {
+            $rule = $this->rules[$k];
+            $pattern = $rule->name_regex_alias;
+            if (preg_match($pattern, $key))     {
+                //possible match, check for needed context
+                if ($rule->flag_needed_a) {
+                    //if not in activeflagids then next
+                    if (! in_array($rule->flag_needed_a,$activeFlagIDs)){
+                        continue;
+                    }
+                }
+                if ($rule->flag_needed_b) {
+                    //if not in activeflagids then next
+                    if (! in_array($rule->flag_needed_b,$activeFlagIDs)){
+                        continue;
+                    }
+                }
+                //if we got here, its a match, so add it
+                array_push($matches,$rule);
+            }
+        } //end loop for all matches
+        return $matches;
+
     }
 }
