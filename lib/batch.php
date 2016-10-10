@@ -12,7 +12,7 @@ class Batch
     protected $filepath = null;
     protected $filename = null;
 
-    public function __construct( $template,$filepath,$org_filename,User $user)
+    public function __construct( stdClass $template,$filepath,$org_filename,User $user)
     {
         try {
             $this->db = DB::getInstance();

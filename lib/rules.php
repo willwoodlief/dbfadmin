@@ -35,7 +35,7 @@ class Rules
               SELECT c.name_regex_alias,c.name_table, c.name_column, c.is_ignored,
               c.id , c.flag_to_raise,c.flag_needed_a,c.flag_needed_b
               from wx_template_columns c
-              where c.wx_template_id = ?
+              where c.wx_template_id = ? AND c.name_regex_alias is not null
               order by c.rank,c.name_regex_alias",
                     [$batch->getTemplate()->id]);
 
@@ -50,8 +50,9 @@ class Rules
             $this->defaultMainFlag = new stdClass();
             $this->defaultMainFlag->name = 'default main';
             $this->defaultMainFlag->priority = 0;
+            $this->defaultMainFlag->id = 0;
             $this->defaultMainFlag->notes = 'created dynamically by rulesclass';
-            array_unshift($flags,$this->defaultMainFlag->notes);
+            array_unshift($flags,$this->defaultMainFlag);
 
 
             for($i=0; $i< sizeof($flags); $i++) {
@@ -59,13 +60,24 @@ class Rules
             }
 
             for($i=0; $i< sizeof($this->rules); $i++) {
-                $this->rules->flag_to_raise = $this->allFlags[$this->rules->flag_to_raise];
-                $this->rules->flag_needed_a = $this->allFlags[$this->rules->flag_needed_a];
-                $this->rules->flag_needed_b = $this->allFlags[$this->rules->flag_needed_b];
+                if (isset( $this->rules[$i]->flag_to_raise)) {
+                    $this->rules[$i]->flag_to_raise = $this->allFlags[intval($this->rules[$i]->flag_to_raise)];
+                } else {
+                    $this->rules[$i]->flag_to_raise = $this->defaultMainFlag; //assume null in db means default flag
+                }
+
+                if (isset($this->rules[$i]->flag_needed_a)) {
+                    $this->rules[$i]->flag_needed_a = $this->allFlags[intval($this->rules[$i]->flag_needed_a)];
+                }
+
+                if (isset($this->rules[$i]->flag_needed_b)) {
+                    $this->rules[$i]->flag_needed_b = $this->allFlags[intval($this->rules[$i]->flag_needed_b)];
+                }
+
             }
 
             //start the active flags with the 0 priority default main
-            $this->activeMain = $this->addActiveFlag(0,null);
+            $this->activeMain = $this->addActiveFlag($this->defaultMainFlag,null);
 
 
 
@@ -136,11 +148,14 @@ class Rules
         } else {
             //is just one , see if this result is to be thrown out
             $rule = $matches[0];
-            if ($rule->is_ignored) {
+            if ($rule->is_ignored != 0) {
                 return; //done and nothing else needs to be done, ignored rules do not add to priority stack or have blocks
             }
 
-            $this->remWorkingActiveFlag = $this->bumpAndProcessRaisedFlag($rule->flag_to_raise,$key,$value);
+            $this->remWorkingActiveFlag = $this->bumpAndProcessRaisedFlag($rule->flag_to_raise);
+            $node = array('value'=> $value,'table'=>$rule->name_table,'column'=>$rule->name_column);
+            $this->remWorkingActiveFlag->block['items'][$key] = $node;
+
 
 
         }
@@ -148,7 +163,7 @@ class Rules
 
     //pops off any active flags and forces all other blocks back to main block
     public function finishUpBlocks() {
-        $this->remWorkingActiveFlag = $this->bumpAndProcessRaisedFlag(0,null,null);
+        $this->remWorkingActiveFlag = $this->bumpAndProcessRaisedFlag($this->defaultMainFlag);
     }
 
     public function getWorkingBlocks() {
@@ -156,31 +171,31 @@ class Rules
         return $this->remWorkingActiveFlag->block;
     }
 
-    private function bumpAndProcessRaisedFlag($flag_id_to_raise,$key,$value) {
-        if (isset($flag_id_to_raise)) {
-            $this->bumpFlags($flag_id_to_raise);
+    private function bumpAndProcessRaisedFlag($flag_to_raise) {
+        if (isset($flag_to_raise)) {
+            $this->bumpFlags($flag_to_raise);
         } //end adding in an active flag
 
         //now add the key value pair to the items part of the working active flag block
         // the working active flag is the one with the highest priority
-        $workingActiveFlag = $this->getWorkingActiveFlag();
-        if (isset($key)) {
-            $workingActiveFlag->block['items'][$key] = $value;
-        }
+        $workingActiveFlag = $this->getWorkingActiveFlag(); //working active is returning the deleted parking
+
         return $workingActiveFlag;
 
     }
 
     //returns the current parent flag
-    private function bumpFlags($flag_id_to_raise) {
-        $event = $this->allFlags[$flag_id_to_raise];
-        $parent_active_flag = null;
+    private function bumpFlags($flag_to_raise) {
+        $event = $flag_to_raise;
+        $parent_active_flag = $this->activeMain;
         //see if priority is lower or equal to any of the active rules
         $takeOut = [];
         for($k=0; $k < sizeof($this->activeFlags);$k++) {
-            $flagID = $this->activeFlags[$k]->flagID;
-            $flag = $this->allFlags[$flagID];
-            if ( ($event->priority <= $flag->priority) && ($flag->priority > 0)) { //basically make the initial 0  priority unbumpable
+            $flag = $this->activeFlags[$k]->flag;
+            if ( ($event->priority <= $flag->priority) &&
+                 ($flag->priority > 0) &&
+                ( $event->id != $flag->id )
+            ) { //basically make the initial 0  priority unbumpable
                 //take out of active flags, and put block, if not empty into parent's children
 
                 array_push($takeOut,$k);
@@ -188,7 +203,7 @@ class Rules
                 if ($flag->priority < $event->priority) {
                     if (isset($parent_active_flag)) {
                         /** @noinspection PhpUndefinedFieldInspection */
-                        if ($flag->priority > $this->allFlags[$parent_active_flag->flagID]->priorty) {
+                        if ($flag->priority > $parent_active_flag->flag->priority) {
                             $parent_active_flag = $this->activeFlags[$k];
                         }
                     } else {
@@ -199,10 +214,10 @@ class Rules
         }
 
         for($k =0; $k < sizeof($takeOut);$k++) {
-            $oldNode = array_splice($this->allFlags,$k,1);
+            $oldNode = array_splice($this->activeFlags,$takeOut[$k],1);
             $activeFlag = $oldNode[0];
             $block = $activeFlag->block;
-            $flag = $this->allFlags[$activeFlag->flagID];
+            $flag = $activeFlag->flag;
             $name = $flag->db_hint_for_needed;
             if ($activeFlag->parent) {
                 $node = ['name'=>$name,'block'=>$block];
@@ -211,21 +226,20 @@ class Rules
         }
 
         //if the parent active flag is 0 then we want to give the original 0 flag instead
-        if ($this->allFlags[$parent_active_flag->flagID]->priority == 0) {
+        if ($parent_active_flag->flag->priority == 0) {
             $parent_active_flag = $this->activeMain;
         }
 
         //add in new active flag
-        $this->addActiveFlag($event->id,$parent_active_flag);
-        return $parent_active_flag;
+        $newActiveFlag = $this->addActiveFlag($event,$parent_active_flag);
+        return $newActiveFlag;
     }
 
     private function getWorkingActiveFlag() {
         $workingActiveFlag = null;
         $hi = -100;
         for($k=0; $k < sizeof($this->activeFlags);$k++) {
-            $flagID = $this->activeFlags[$k]->flagID;
-            $flag = $this->allFlags[$flagID];
+            $flag = $this->activeFlags[$k]->flag;
             if ($flag->priority > $hi) {
                 $hi = $flag->priority;
                 $workingActiveFlag = $this->activeFlags[$k];
@@ -234,9 +248,16 @@ class Rules
         return $workingActiveFlag;
     }
 
-    private function addActiveFlag($flagID,$parent) {
+    private function addActiveFlag($flag,$parent) {
+        //only add if active flag is not there for that flag
+        for($k=0; $k< sizeof($this->activeFlags);$k++) {
+            $test = $this->activeFlags[$k];
+            if ($test->flag->id == $flag->id) {
+                return $test;
+            }
+        }
         $activeFlag = new stdClass();
-        $activeFlag->flagID = $flagID; //the default main
+        $activeFlag->flag = $flag;
         $activeFlag->block = ['items'=>[],'children'=>[]];
         $activeFlag->parent = $parent;
         array_push($this->activeFlags,$activeFlag);
@@ -246,7 +267,7 @@ class Rules
     private function getActiveFlagIDs() {
         $ret = [];
         for($k=0; $k < sizeof($this->activeFlags);$k++) {
-            $flagID = $this->activeFlags[$k]->flagID;
+            $flagID = $this->activeFlags[$k]->flag->id;
             array_push($ret,$flagID);
         }
         return $ret;
@@ -280,18 +301,18 @@ class Rules
         $matches = [];
         for($k=0;$k<sizeof($this->rules); $k++) {
             $rule = $this->rules[$k];
-            $pattern = $rule->name_regex_alias;
-            if (preg_match($pattern, $key))     {
+            $pattern = preg_quote($rule->name_regex_alias, '/');
+            if (preg_match('/'.$pattern.'/', $key))     {
                 //possible match, check for needed context
                 if (isset($rule->flag_needed_a)) {
                     //if not in activeflagids then next
-                    if (! in_array($rule->flag_needed_a,$activeFlagIDs)){
+                    if (! in_array($rule->flag_needed_a->id,$activeFlagIDs)){
                         continue;
                     }
                 }
                 if (isset($rule->flag_needed_b)) {
                     //if not in activeflagids then next
-                    if (! in_array($rule->flag_needed_b,$activeFlagIDs)){
+                    if (! in_array($rule->flag_needed_b->id,$activeFlagIDs)){
                         continue;
                     }
                 }

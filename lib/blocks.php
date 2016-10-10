@@ -105,7 +105,7 @@ class Blocks
         for ($i = 0; $i < $num_rec; $i++) {
             $row = $this->dbf->getRow($i);
             if (empty($row[1])) {
-
+                continue;
             } else {
                 $w_unkwn = (empty($row[2])) ? $row[3] : $row[2];
                 $value = ForceUTF8\Encoding::toUTF8($w_unkwn);

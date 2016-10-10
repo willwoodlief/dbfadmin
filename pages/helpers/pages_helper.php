@@ -8,7 +8,7 @@ function to_utf8($what) {
     return ForceUTF8\Encoding::toUTF8($what);
 }
 
-function upload_data_from_file($filepath,$filename,User $user,$template, $b_dryrun = false) {
+function upload_data_from_file($filepath,$filename,User $user,stdClass $template, $b_dryrun = false) {
 
     $errors = [];
     try {
@@ -18,7 +18,7 @@ function upload_data_from_file($filepath,$filename,User $user,$template, $b_dryr
         Session::put('last_property_uploaded',$blocks);
 
         if ($batch->hasErrors()) {
-            array_push($errors,$batch->getErrors());
+            $errors = array_merge($errors,$batch->getErrors());
         } else {
             if (!$b_dryrun) {
                 writeBlocksToDB($batch);
