@@ -153,6 +153,9 @@ class Rules
             }
 
             $this->remWorkingActiveFlag = $this->bumpAndProcessRaisedFlag($rule->flag_to_raise);
+            if (!isset($value) || empty($value)) {
+                $value = $key;
+            }
             $node = array('value'=> $value,'table'=>$rule->name_table,'column'=>$rule->name_column);
             $this->remWorkingActiveFlag->block['items'][$key] = $node;
 
@@ -184,6 +187,8 @@ class Rules
 
     }
 
+    #todo need another field in the rules to bump out things of same flags (priority checkbox would be ok)
+    #todo show priority checkbox (see above) in the rules grid
     //returns the current parent flag
     private function bumpFlags($flag_to_raise) {
         $event = $flag_to_raise;
@@ -213,12 +218,13 @@ class Rules
             }
         }
 
+        $takeOut = array_reverse($takeOut);
         for($k =0; $k < sizeof($takeOut);$k++) {
             $oldNode = array_splice($this->activeFlags,$takeOut[$k],1);
             $activeFlag = $oldNode[0];
             $block = $activeFlag->block;
             $flag = $activeFlag->flag;
-            $name = $flag->db_hint_for_needed;
+            $name = $flag->name;
             if ($activeFlag->parent) {
                 $node = ['name'=>$name,'block'=>$block];
                 array_push($activeFlag->parent->block['children'],$node);
@@ -301,8 +307,12 @@ class Rules
         $matches = [];
         for($k=0;$k<sizeof($this->rules); $k++) {
             $rule = $this->rules[$k];
-            $pattern = preg_quote($rule->name_regex_alias, '/');
-            if (preg_match('/'.$pattern.'/', $key))     {
+            //check to see if this is a string or a regular expression
+            $rule->name_regex_alias;
+
+
+
+            if ($rule->name_regex_alias ==  $key)     {
                 //possible match, check for needed context
                 if (isset($rule->flag_needed_a)) {
                     //if not in activeflagids then next
